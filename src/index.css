@@ -1,0 +1,254 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 140 15% 95%;
+    --foreground: 150 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 20% 10%;
+
+    --primary: 153 76% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 140 18% 93%;
+    --secondary-foreground: 150 20% 20%;
+
+    --muted: 140 12% 91%;
+    --muted-foreground: 150 10% 45%;
+
+    --accent: 153 70% 94%;
+    --accent-foreground: 153 80% 30%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 153 76% 30%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 150 10% 78%;
+    --input: 150 10% 78%;
+    --ring: 153 76% 32%;
+
+    --radius: 0.5rem;
+    --radius-button: 0.625rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 150 20% 25%;
+    --sidebar-primary: 153 76% 32%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 153 70% 96%;
+    --sidebar-accent-foreground: 153 80% 30%;
+    --sidebar-border: 150 13% 93%;
+    --sidebar-ring: 153 76% 32%;
+
+    /* Custom tokens */
+    --glass: 0 0% 100% / 0.7;
+    --glass-border: 0 0% 100% / 0.3;
+    --shadow-soft: 150 40% 20% / 0.06;
+    --shadow-medium: 150 40% 20% / 0.1;
+    --gradient-primary: linear-gradient(135deg, hsl(153 76% 32%) 0%, hsl(160 70% 26%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(153 70% 94%) 0%, hsl(160 60% 96%) 100%);
+  }
+
+  .dark {
+    --background: 150 20% 8%;
+    --foreground: 140 20% 98%;
+
+    --card: 150 20% 12%;
+    --card-foreground: 140 20% 98%;
+
+    --popover: 150 20% 12%;
+    --popover-foreground: 140 20% 98%;
+
+    --primary: 153 76% 50%;
+    --primary-foreground: 150 30% 10%;
+
+    --secondary: 150 20% 18%;
+    --secondary-foreground: 140 20% 90%;
+
+    --muted: 150 15% 20%;
+    --muted-foreground: 150 10% 60%;
+
+    --accent: 153 50% 20%;
+    --accent-foreground: 153 70% 70%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 15% 20%;
+    --input: 150 15% 20%;
+    --ring: 153 76% 50%;
+
+    --sidebar-background: 150 20% 10%;
+    --sidebar-foreground: 140 20% 90%;
+    --sidebar-primary: 153 76% 50%;
+    --sidebar-primary-foreground: 150 30% 10%;
+    --sidebar-accent: 153 50% 18%;
+    --sidebar-accent-foreground: 153 70% 70%;
+    --sidebar-border: 150 15% 18%;
+    --sidebar-ring: 153 76% 50%;
+
+    --glass: 150 20% 15% / 0.8;
+    --glass-border: 0 0% 100% / 0.1;
+    --shadow-soft: 0 0% 0% / 0.2;
+    --shadow-medium: 0 0% 0% / 0.3;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-[hsl(var(--glass))] backdrop-blur-xl border border-[hsl(var(--glass-border))];
+  }
+
+  .shadow-soft {
+    box-shadow: 0 2px 8px hsl(var(--shadow-soft)), 0 1px 3px hsl(var(--shadow-soft));
+  }
+
+  .shadow-medium {
+    box-shadow: 0 4px 20px hsl(var(--shadow-medium)), 0 2px 8px hsl(var(--shadow-soft));
+  }
+
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Barcode Scanner Styling */
+#barcode-reader {
+  border: none !important;
+}
+
+#barcode-reader > div:first-child {
+  border-radius: 0.75rem !important;
+  overflow: hidden !important;
+}
+
+#barcode-reader video {
+  border-radius: 0.75rem !important;
+}
+
+#barcode-reader__scan_region {
+  min-height: 200px;
+}
+
+#barcode-reader__dashboard {
+  padding: 0.75rem !important;
+}
+
+#barcode-reader__dashboard_section_swaplink {
+  text-decoration: none !important;
+  color: hsl(var(--primary)) !important;
+  font-size: 0.875rem !important;
+}
+
+#barcode-reader__dashboard button {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.875rem !important;
+  cursor: pointer !important;
+}
+
+#barcode-reader__dashboard button:hover {
+  opacity: 0.9 !important;
+}
+
+/* Hide loading when scanner is active */
+#barcode-reader:not(:empty) + #scanner-loading,
+#barcode-reader video ~ #scanner-loading {
+  display: none;
+}
+
+#barcode-reader:has(video) ~ #scanner-loading {
+  display: none;
+}
