@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Plus, Pencil, Trash2, FolderOpen, Palette, CreditCard, Dumbbell, UserCog2
 } from "lucide-react";
@@ -22,7 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import Request from "@/lib/api/client";
 
-// API response types
+// --- Types ---
+
 interface ApiMembership {
   _id: string;
   name: string;
@@ -49,7 +49,6 @@ interface ApiListResponse {
   message: string;
 }
 
-// Mapped UI type
 interface TrainingCategory {
   id: string;
   name: string;
@@ -62,13 +61,14 @@ interface TrainingCategory {
   classes: { id: string; name: string }[];
 }
 
+// --- Constants & Helpers ---
+
 const ITEMS_PER_PAGE = 8;
 
 const colorOptions = [
   "#22c55e", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444", "#14b8a6"
 ];
 
-// Assign a consistent color based on category id
 const getCategoryColor = (id: string) => {
   let hash = 0;
   for (let i = 0; i < id.length; i++) {
@@ -103,6 +103,139 @@ const fetchCategories = async (page: number, search: string, status: string) => 
   return res;
 };
 
+// --- Sub-components (MOVED OUTSIDE TO FIX CURSOR ISSUE) ---
+
+interface CategoryFormProps {
+  formData: {
+    name: string;
+    description: string;
+    color: string;
+    status: "Active" | "Inactive";
+  };
+  setFormData: React.Dispatch<React.SetStateAction<{
+    name: string;
+    description: string;
+    color: string;
+    status: "Active" | "Inactive";
+  }>>;
+}
+
+const CategoryForm = ({ formData, setFormData }: CategoryFormProps) => (
+  <div className="space-y-4">
+    <div>
+      <Label htmlFor="name">Category Name</Label>
+      <Input
+        id="name"
+        value={formData.name}
+        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+        placeholder="e.g., Premium Plans"
+        className="mt-1.5"
+      />
+    </div>
+    <div>
+      <Label htmlFor="description">Description</Label>
+      <Input
+        id="description"
+        value={formData.description}
+        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+        placeholder="Brief description of this category"
+        className="mt-1.5"
+      />
+    </div>
+    <div>
+      <Label className="flex items-center gap-2">
+        <Palette className="h-4 w-4" />
+        Color
+      </Label>
+      <div className="flex gap-2 mt-2 flex-wrap">
+        {colorOptions.map((color) => (
+          <button
+            key={color}
+            type="button"
+            className={`w-8 h-8 rounded-lg transition-all ${formData.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'hover:scale-105'}`}
+            style={{ backgroundColor: color }}
+            onClick={() => setFormData(prev => ({ ...prev, color }))}
+          />
+        ))}
+      </div>
+    </div>
+    <div>
+      <Label>Status</Label>
+      <div className="flex gap-2 mt-2">
+        <Button
+          type="button"
+          variant={formData.status === "Active" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFormData(prev => ({ ...prev, status: "Active" }))}
+        >
+          Active
+        </Button>
+        <Button
+          type="button"
+          variant={formData.status === "Inactive" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFormData(prev => ({ ...prev, status: "Inactive" }))}
+        >
+          Inactive
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
+const AssignedItemsView = ({ selectedCategory }: { selectedCategory: TrainingCategory | null }) => {
+  const currentMemberships = selectedCategory?.memberships ?? [];
+  const currentClasses = selectedCategory?.classes ?? [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <Label className="flex items-center gap-2 text-base font-semibold mb-3">
+          <CreditCard className="h-4 w-4" />
+          Memberships ({currentMemberships.length})
+        </Label>
+        <div className="space-y-1 max-h-40 overflow-y-auto border rounded-lg p-3">
+          {currentMemberships.length > 0 ? currentMemberships.map((membership) => (
+            <div key={membership.id} className="flex items-center gap-3 p-2 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+              <span className="text-sm">{membership.name}</span>
+            </div>
+          )) : (
+            <p className="text-sm text-muted-foreground py-2">No memberships assigned</p>
+          )}
+        </div>
+      </div>
+      <div>
+        <Label className="flex items-center gap-2 text-base font-semibold mb-3">
+          <Dumbbell className="h-4 w-4" />
+          Classes ({currentClasses.length})
+        </Label>
+        <div className="space-y-1 max-h-40 overflow-y-auto border rounded-lg p-3">
+          {currentClasses.length > 0 ? currentClasses.map((classItem) => (
+            <div key={classItem.id} className="flex items-center gap-3 p-2 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+              <span className="text-sm">{classItem.name}</span>
+            </div>
+          )) : (
+            <p className="text-sm text-muted-foreground py-2">No classes assigned</p>
+          )}
+        </div>
+      </div>
+      <div>
+        <Label className="flex items-center gap-2 text-base font-semibold mb-3">
+          <UserCog2 className="h-4 w-4" />
+          PT Packages ({selectedCategory?.ptCount ?? 0})
+        </Label>
+        <div className="space-y-1 max-h-40 overflow-y-auto border rounded-lg p-3">
+          <p className="text-sm text-muted-foreground py-2">No PT packages assigned</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Component ---
+
 const TrainingCategories = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
@@ -113,18 +246,15 @@ const TrainingCategories = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<TrainingCategory | null>(null);
+  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     color: "#22c55e",
     status: "Active" as "Active" | "Inactive",
   });
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Assignment state
-  const [selectedMemberships, setSelectedMemberships] = useState<string[]>([]);
-  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
-  const [selectedPTPackages, setSelectedPTPackages] = useState<string[]>([]);
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
     queryKey: ["training-categories", currentPage, searchQuery, statusFilter],
@@ -197,6 +327,12 @@ const TrainingCategories = () => {
       ),
     },
     {
+      key: "createdAt",
+      label: "Created",
+      priority: "xl",
+      render: (value) => <span className="text-sm text-muted-foreground">{value}</span>,
+    },
+    {
       key: "status",
       label: "Status",
       priority: "md",
@@ -206,19 +342,16 @@ const TrainingCategories = () => {
         </Badge>
       ),
     },
-    {
-      key: "createdAt",
-      label: "Created",
-      priority: "xl",
-      render: (value) => <span className="text-sm text-muted-foreground">{value}</span>,
-    },
   ];
 
   const rowActions: RowAction<TrainingCategory>[] = [
     {
       label: "View Items",
       icon: FolderOpen,
-      onClick: (category) => openAssignForm(category),
+      onClick: (category) => {
+        setSelectedCategory(category);
+        setIsAssignOpen(true);
+      },
     },
     {
       label: "Edit",
@@ -243,12 +376,7 @@ const TrainingCategories = () => {
     }
     setIsSubmitting(true);
     try {
-      await Request.post("/categorys/create", {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        status: formData.status,
-        color: formData.color,
-      });
+      await Request.post("/categorys/create", formData);
       toast.success("Category added successfully");
       setIsAddOpen(false);
       resetForm();
@@ -261,18 +389,10 @@ const TrainingCategories = () => {
   };
 
   const handleEditCategory = async () => {
-    if (!selectedCategory || !formData.name.trim()) {
-      toast.error("Category name is required");
-      return;
-    }
+    if (!selectedCategory || !formData.name.trim()) return;
     setIsSubmitting(true);
     try {
-      await Request.put(`/categorys/${selectedCategory.id}`, {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        status: formData.status,
-        color: formData.color,
-      });
+      await Request.put(`/categorys/${selectedCategory.id}`, formData);
       toast.success("Category updated successfully");
       setIsEditOpen(false);
       resetForm();
@@ -297,15 +417,6 @@ const TrainingCategories = () => {
     setSelectedCategory(null);
   };
 
-  const handleAssignItems = () => {
-    toast.info("Assign items API integration coming soon");
-    setIsAssignOpen(false);
-    setSelectedMemberships([]);
-    setSelectedClasses([]);
-    setSelectedPTPackages([]);
-    setSelectedCategory(null);
-  };
-
   const resetForm = () => {
     setFormData({ name: "", description: "", color: "#22c55e", status: "Active" });
     setSelectedCategory(null);
@@ -322,172 +433,19 @@ const TrainingCategories = () => {
     setIsEditOpen(true);
   };
 
-  const openAssignForm = (category: TrainingCategory) => {
-    setSelectedCategory(category);
-    setSelectedMemberships(category.memberships.map(m => m.id));
-    setSelectedClasses(category.classes.map(c => c.id));
-    setSelectedPTPackages([]);
-    setIsAssignOpen(true);
-  };
-
-  const toggleMembership = (id: string) => {
-    setSelectedMemberships(prev =>
-      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
-    );
-  };
-
-  const toggleClass = (id: string) => {
-    setSelectedClasses(prev =>
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
-  };
-
-  const togglePTPackage = (id: string) => {
-    setSelectedPTPackages(prev =>
-      prev.includes(id) ? prev.filter(pt => pt !== id) : [...prev, id]
-    );
-  };
-
-  const CategoryForm = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="name">Category Name</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="e.g., Premium Plans"
-          className="mt-1.5"
-        />
-      </div>
-      <div>
-        <Label htmlFor="description">Description</Label>
-        <Input
-          id="description"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Brief description of this category"
-          className="mt-1.5"
-        />
-      </div>
-      <div>
-        <Label className="flex items-center gap-2">
-          <Palette className="h-4 w-4" />
-          Color
-        </Label>
-        <div className="flex gap-2 mt-2 flex-wrap">
-          {colorOptions.map((color) => (
-            <button
-              key={color}
-              type="button"
-              className={`w-8 h-8 rounded-lg transition-all ${formData.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'hover:scale-105'}`}
-              style={{ backgroundColor: color }}
-              onClick={() => setFormData({ ...formData, color })}
-            />
-          ))}
-        </div>
-      </div>
-      <div>
-        <Label>Status</Label>
-        <div className="flex gap-2 mt-2">
-          <Button
-            type="button"
-            variant={formData.status === "Active" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFormData({ ...formData, status: "Active" })}
-          >
-            Active
-          </Button>
-          <Button
-            type="button"
-            variant={formData.status === "Inactive" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFormData({ ...formData, status: "Inactive" })}
-          >
-            Inactive
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const AssignedItemsView = () => {
-    const currentMemberships = selectedCategory?.memberships ?? [];
-    const currentClasses = selectedCategory?.classes ?? [];
-
-    return (
-      <div className="space-y-6">
-        {/* Memberships Section */}
-        <div>
-          <Label className="flex items-center gap-2 text-base font-semibold mb-3">
-            <CreditCard className="h-4 w-4" />
-            Memberships ({currentMemberships.length})
-          </Label>
-          <div className="space-y-1 max-h-40 overflow-y-auto border rounded-lg p-3">
-            {currentMemberships.length > 0 ? currentMemberships.map((membership) => (
-              <div
-                key={membership.id}
-                className="flex items-center gap-3 p-2 rounded-lg"
-              >
-                <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                <span className="text-sm">{membership.name}</span>
-              </div>
-            )) : (
-              <p className="text-sm text-muted-foreground py-2">No memberships assigned</p>
-            )}
-          </div>
-        </div>
-
-        {/* Classes Section */}
-        <div>
-          <Label className="flex items-center gap-2 text-base font-semibold mb-3">
-            <Dumbbell className="h-4 w-4" />
-            Classes ({currentClasses.length})
-          </Label>
-          <div className="space-y-1 max-h-40 overflow-y-auto border rounded-lg p-3">
-            {currentClasses.length > 0 ? currentClasses.map((classItem) => (
-              <div
-                key={classItem.id}
-                className="flex items-center gap-3 p-2 rounded-lg"
-              >
-                <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                <span className="text-sm">{classItem.name}</span>
-              </div>
-            )) : (
-              <p className="text-sm text-muted-foreground py-2">No classes assigned</p>
-            )}
-          </div>
-        </div>
-
-        {/* PT Packages Section */}
-        <div>
-          <Label className="flex items-center gap-2 text-base font-semibold mb-3">
-            <UserCog2 className="h-4 w-4" />
-            PT Packages ({selectedCategory?.ptCount ?? 0})
-          </Label>
-          <div className="space-y-1 max-h-40 overflow-y-auto border rounded-lg p-3">
-            <p className="text-sm text-muted-foreground py-2">No PT packages assigned</p>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Training Categories</h1>
-          <p className="text-muted-foreground">Organize memberships, classes, and PT packages into categories</p>
+          <p className="text-muted-foreground">Organize memberships, classes, and PT packages</p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)}>
+        <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           Add Category
         </Button>
       </div>
 
-      {/* Filter Bar */}
       <FilterBar
         searchValue={searchQuery}
         onSearchChange={handleSearch}
@@ -511,7 +469,6 @@ const TrainingCategories = () => {
         ]}
       />
 
-      {/* Categories Table */}
       <ResponsiveTable<TrainingCategory>
         columns={columns}
         data={categories}
@@ -527,32 +484,26 @@ const TrainingCategories = () => {
         }}
       />
 
-      {/* Add Category Sheet */}
       <QuickAddSheet
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
         title="Add Category"
-        description="Create a new category for training items"
         onSubmit={handleAddCategory}
-        submitLabel="Add Category"
+        submitLabel={isSubmitting ? "Adding..." : "Add Category"}
       >
-        <CategoryForm />
+        <CategoryForm formData={formData} setFormData={setFormData} />
       </QuickAddSheet>
 
-      {/* Edit Category Sheet */}
       <QuickAddSheet
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
         title="Edit Category"
-        description="Update category details"
         onSubmit={handleEditCategory}
-        submitLabel="Save Changes"
+        submitLabel={isSubmitting ? "Saving..." : "Save Changes"}
       >
-        <CategoryForm />
+        <CategoryForm formData={formData} setFormData={setFormData} />
       </QuickAddSheet>
 
-      {/* Assign Items Sheet */}
-      {/* View Assigned Items Sheet */}
       <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -561,10 +512,10 @@ const TrainingCategories = () => {
               Memberships, classes, and PT packages assigned to this category
             </DialogDescription>
           </DialogHeader>
-          <AssignedItemsView />
+          <AssignedItemsView selectedCategory={selectedCategory} />
         </DialogContent>
       </Dialog>
-
+      
       {/* Delete Confirmation */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent>
