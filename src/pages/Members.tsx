@@ -24,14 +24,14 @@ interface ApiMember {
   name: string;
   image: string;
   email: string;
-  phone: string;
-  membership: string;
+  phoneNumber: string;
+  memberShipName: string;
   classes: string[];
   pt: string[];
-  joinDate: string;
-  expiryDate: string;
-  status: "active" | "expired" | "pending";
-  branch: string;
+  createdAt: string;
+  renewalDay: string;
+  status: "Active" | "Inactive" | "_";
+  branchName: string;
   birthday?: string; // Format: "MM-DD"
 }
 interface ApiListResponse {
@@ -54,7 +54,7 @@ interface Member {
   pt: string[];
   joinDate: string;
   expiryDate: string;
-  status: "active" | "expired" | "pending";
+  status: "Active" | "Inactive" | "_";
   branch: string;
   birthday?: string; // Format: "MM-DD"
 }
@@ -93,18 +93,18 @@ const isBirthdaySoon = (birthday?: string) => {
 };
 
 const sampleData: Member[] = [
-  { id: 1, memberId: "MEM-001", name: "John Smith", image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=150", email: "john.smith@email.com", phone: "+1 234 567 890", membership: "Premium", classes: ["Yoga", "HIIT", "Spin"], pt: ["Weight Loss", "Cardio Fitness"], joinDate: "Jan 15, 2024", expiryDate: "Jan 15, 2025", status: "active", branch: "Downtown", birthday: "12-31" },
-  { id: 2, memberId: "MEM-002", name: "Sarah Johnson", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", email: "sarah.j@email.com", phone: "+1 234 567 891", membership: "VIP", classes: ["Pilates", "Zumba"], pt: ["Body Toning"], joinDate: "Mar 20, 2024", expiryDate: "Mar 20, 2025", status: "active", branch: "Downtown", birthday: "01-05" },
-  { id: 3, memberId: "MEM-003", name: "Mike Davis", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150", email: "mike.d@email.com", phone: "+1 234 567 892", membership: "Standard", classes: ["CrossFit", "Boxing"], pt: ["Muscle Building", "Sports Performance"], joinDate: "Feb 10, 2024", expiryDate: "Feb 10, 2025", status: "active", branch: "Westside" },
-  { id: 4, memberId: "MEM-004", name: "Emily Chen", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150", email: "emily.c@email.com", phone: "+1 234 567 893", membership: "Premium", classes: ["Yoga", "Pilates", "Swimming"], pt: ["Flexibility"], joinDate: "Dec 5, 2023", expiryDate: "Dec 5, 2024", status: "expired", branch: "Downtown" },
-  { id: 5, memberId: "MEM-005", name: "David Wilson", image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150", email: "david.w@email.com", phone: "+1 234 567 894", membership: "Standard", classes: ["HIIT"], pt: [], joinDate: "Nov 28, 2024", expiryDate: "Nov 28, 2025", status: "pending", branch: "Eastside", birthday: "01-02" },
-  { id: 6, memberId: "MEM-006", name: "Lisa Brown", image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150", email: "lisa.b@email.com", phone: "+1 234 567 895", membership: "VIP", classes: ["Spin", "Zumba", "Kickboxing", "Strength Training"], pt: ["Weight Loss", "Endurance"], joinDate: "Aug 12, 2024", expiryDate: "Aug 12, 2025", status: "active", branch: "Downtown" },
-  { id: 7, memberId: "MEM-007", name: "James Taylor", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150", email: "james.t@email.com", phone: "+1 234 567 896", membership: "Premium", classes: ["CrossFit", "Boxing", "HIIT"], pt: ["Muscle Building"], joinDate: "Oct 3, 2024", expiryDate: "Oct 3, 2025", status: "active", branch: "Westside" },
-  { id: 8, memberId: "MEM-008", name: "Anna Martinez", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150", email: "anna.m@email.com", phone: "+1 234 567 897", membership: "Standard", classes: ["Yoga", "Swimming"], pt: ["Rehabilitation"], joinDate: "Sep 15, 2024", expiryDate: "Sep 15, 2025", status: "active", branch: "Eastside" },
-  { id: 9, memberId: "MEM-009", name: "Robert Lee", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150", email: "robert.l@email.com", phone: "+1 234 567 898", membership: "VIP", classes: ["Pilates", "Strength Training"], pt: ["Cardio Fitness", "Body Toning"], joinDate: "Jul 22, 2024", expiryDate: "Jul 22, 2025", status: "active", branch: "Downtown" },
-  { id: 10, memberId: "MEM-010", name: "Jessica White", image: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150", email: "jessica.w@email.com", phone: "+1 234 567 899", membership: "Premium", classes: ["Zumba", "Spin"], pt: ["Flexibility", "Endurance"], joinDate: "Jun 8, 2024", expiryDate: "Jun 8, 2025", status: "active", branch: "Westside" },
-  { id: 11, memberId: "MEM-011", name: "Chris Anderson", image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150", email: "chris.a@email.com", phone: "+1 234 567 900", membership: "Standard", classes: ["Boxing"], pt: [], joinDate: "May 1, 2024", expiryDate: "May 1, 2025", status: "expired", branch: "Downtown" },
-  { id: 12, memberId: "MEM-012", name: "Michelle Garcia", image: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150", email: "michelle.g@email.com", phone: "+1 234 567 901", membership: "Premium", classes: ["Yoga", "HIIT", "Kickboxing"], pt: ["Sports Performance"], joinDate: "Apr 20, 2024", expiryDate: "Apr 20, 2025", status: "active", branch: "Eastside" },
+  { id: 1, memberId: "MEM-001", name: "John Smith", image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=150", email: "john.smith@email.com", phone: "+1 234 567 890", membership: "Premium", classes: ["Yoga", "HIIT", "Spin"], pt: ["Weight Loss", "Cardio Fitness"], joinDate: "Jan 15, 2024", expiryDate: "Jan 15, 2025", status: "Active", branch: "Downtown", birthday: "12-31" },
+  { id: 2, memberId: "MEM-002", name: "Sarah Johnson", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", email: "sarah.j@email.com", phone: "+1 234 567 891", membership: "VIP", classes: ["Pilates", "Zumba"], pt: ["Body Toning"], joinDate: "Mar 20, 2024", expiryDate: "Mar 20, 2025", status: "Active", branch: "Downtown", birthday: "01-05" },
+  { id: 3, memberId: "MEM-003", name: "Mike Davis", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150", email: "mike.d@email.com", phone: "+1 234 567 892", membership: "Standard", classes: ["CrossFit", "Boxing"], pt: ["Muscle Building", "Sports Performance"], joinDate: "Feb 10, 2024", expiryDate: "Feb 10, 2025", status: "Active", branch: "Westside" },
+  { id: 4, memberId: "MEM-004", name: "Emily Chen", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150", email: "emily.c@email.com", phone: "+1 234 567 893", membership: "Premium", classes: ["Yoga", "Pilates", "Swimming"], pt: ["Flexibility"], joinDate: "Dec 5, 2023", expiryDate: "Dec 5, 2024", status: "Inactive", branch: "Downtown" },
+  { id: 5, memberId: "MEM-005", name: "David Wilson", image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150", email: "david.w@email.com", phone: "+1 234 567 894", membership: "Standard", classes: ["HIIT"], pt: [], joinDate: "Nov 28, 2024", expiryDate: "Nov 28, 2025", status: "Inactive", branch: "Eastside", birthday: "01-02" },
+  { id: 6, memberId: "MEM-006", name: "Lisa Brown", image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150", email: "lisa.b@email.com", phone: "+1 234 567 895", membership: "VIP", classes: ["Spin", "Zumba", "Kickboxing", "Strength Training"], pt: ["Weight Loss", "Endurance"], joinDate: "Aug 12, 2024", expiryDate: "Aug 12, 2025", status: "Active", branch: "Downtown" },
+  { id: 7, memberId: "MEM-007", name: "James Taylor", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150", email: "james.t@email.com", phone: "+1 234 567 896", membership: "Premium", classes: ["CrossFit", "Boxing", "HIIT"], pt: ["Muscle Building"], joinDate: "Oct 3, 2024", expiryDate: "Oct 3, 2025", status: "Active", branch: "Westside" },
+  { id: 8, memberId: "MEM-008", name: "Anna Martinez", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150", email: "anna.m@email.com", phone: "+1 234 567 897", membership: "Standard", classes: ["Yoga", "Swimming"], pt: ["Rehabilitation"], joinDate: "Sep 15, 2024", expiryDate: "Sep 15, 2025", status: "Active", branch: "Eastside" },
+  { id: 9, memberId: "MEM-009", name: "Robert Lee", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150", email: "robert.l@email.com", phone: "+1 234 567 898", membership: "VIP", classes: ["Pilates", "Strength Training"], pt: ["Cardio Fitness", "Body Toning"], joinDate: "Jul 22, 2024", expiryDate: "Jul 22, 2025", status: "Active", branch: "Downtown" },
+  { id: 10, memberId: "MEM-010", name: "Jessica White", image: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150", email: "jessica.w@email.com", phone: "+1 234 567 899", membership: "Premium", classes: ["Zumba", "Spin"], pt: ["Flexibility", "Endurance"], joinDate: "Jun 8, 2024", expiryDate: "Jun 8, 2025", status: "Active", branch: "Westside" },
+  { id: 11, memberId: "MEM-011", name: "Chris Anderson", image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150", email: "chris.a@email.com", phone: "+1 234 567 900", membership: "Standard", classes: ["Boxing"], pt: [], joinDate: "May 1, 2024", expiryDate: "May 1, 2025", status: "Inactive", branch: "Downtown" },
+  { id: 12, memberId: "MEM-012", name: "Michelle Garcia", image: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150", email: "michelle.g@email.com", phone: "+1 234 567 901", membership: "Premium", classes: ["Yoga", "HIIT", "Kickboxing"], pt: ["Sports Performance"], joinDate: "Apr 20, 2024", expiryDate: "Apr 20, 2025", status: "Active", branch: "Eastside" },
 ];
 
 const ITEMS_PER_PAGE = 8;
@@ -233,8 +233,8 @@ const columns: Column<Member>[] = [
     key: "status",
     label: "Status",
     priority: "always",
-    render: (value: "active" | "expired" | "pending") => (
-      <StatusBadge status={value === "active" ? "success" : value === "expired" ? "error" : "warning"} label={value.charAt(0).toUpperCase() + value.slice(1)} />
+    render: (value: "active" | "Inactive" | "pending") => (
+      <StatusBadge status={value === "active" ? "success" : value === "Inactive" ? "error" : "warning"} label={value.charAt(0).toUpperCase() + value.slice(1)} />
     ),
   },
 ];
@@ -244,16 +244,16 @@ const mapApiMember = (mb: ApiMember): Member => ({
   memberId: mb.memberId,
   name: mb.name,
   image: mb.image,
-  email: mb.email,
-  phone: "+1 234 567 890",
-  membership: "Premium",
-  classes: ["Yoga", "HIIT", "Spin"],
+  email: mb.email ? mb.email : "_",
+  phone: mb.phoneNumber ? mb.phoneNumber : "_",
+  membership: mb.memberShipName ? (mb.memberShipName.length > 5 ? mb.memberShipName.substring(0, 5) + ".." : mb.memberShipName) : "_",
+  classes: mb.classes ? mb.classes : [],
   pt: ["Weight Loss", "Cardio Fitness"],
-  joinDate: "Jan 15, 2024",
-  expiryDate: "Jan 15, 2025",
-  status: "active",
-  branch: "Downtown",
-  birthday: "12-31"
+  joinDate: mb.createdAt ? new Date(mb.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
+  expiryDate: mb.renewalDay ? new Date(mb.renewalDay).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
+  status: mb.status || "_",
+  branch: mb.branchName || "_",
+  birthday: mb.birthday || "_"
 });
 
 export default function Members() {
@@ -504,7 +504,6 @@ export default function Members() {
         data={members}
         columns={columns}
         keyExtractor={(item) => item.id}
-        // pagination={paginationProps}
         isLoading={isLoading}
         rowActions={rowActions}
         pagination={{
