@@ -17,8 +17,33 @@ import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
 import { useToast } from "@/hooks/use-toast";
 import { subDays } from "date-fns";
 import Request from "@/lib/api/client";
+
+interface ApiMember {
+  _id: string;
+  memberId: string;
+  name: string;
+  image: string;
+  email: string;
+  phone: string;
+  membership: string;
+  classes: string[];
+  pt: string[];
+  joinDate: string;
+  expiryDate: string;
+  status: "active" | "expired" | "pending";
+  branch: string;
+  birthday?: string; // Format: "MM-DD"
+}
+interface ApiListResponse {
+  data: ApiMember[];
+  dataCount: number;
+  currentPaginationIndex: number;
+  dataPerPage: number;
+  message: string;
+}
+
 interface Member {
-  id: number;
+  id: string | number;
   memberId: string;
   name: string;
   image: string;
@@ -81,14 +106,6 @@ const sampleData: Member[] = [
   { id: 11, memberId: "MEM-011", name: "Chris Anderson", image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150", email: "chris.a@email.com", phone: "+1 234 567 900", membership: "Standard", classes: ["Boxing"], pt: [], joinDate: "May 1, 2024", expiryDate: "May 1, 2025", status: "expired", branch: "Downtown" },
   { id: 12, memberId: "MEM-012", name: "Michelle Garcia", image: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150", email: "michelle.g@email.com", phone: "+1 234 567 901", membership: "Premium", classes: ["Yoga", "HIIT", "Kickboxing"], pt: ["Sports Performance"], joinDate: "Apr 20, 2024", expiryDate: "Apr 20, 2025", status: "active", branch: "Eastside" },
 ];
-
-interface ApiListResponse {
-  data: Member[];
-  dataCount: number;
-  currentPaginationIndex: number;
-  dataPerPage: number;
-  message: string;
-}
 
 const ITEMS_PER_PAGE = 8;
 
@@ -222,6 +239,23 @@ const columns: Column<Member>[] = [
   },
 ];
 
+const mapApiMember = (mb: ApiMember): Member => ({
+  id: mb._id,
+  memberId: mb.memberId,
+  name: mb.name,
+  image: mb.image,
+  email: mb.email,
+  phone: "+1 234 567 890",
+  membership: "Premium",
+  classes: ["Yoga", "HIIT", "Spin"],
+  pt: ["Weight Loss", "Cardio Fitness"],
+  joinDate: "Jan 15, 2024",
+  expiryDate: "Jan 15, 2025",
+  status: "active",
+  branch: "Downtown",
+  birthday: "12-31"
+});
+
 export default function Members() {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -293,9 +327,13 @@ export default function Members() {
   };
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
-    queryKey: ["members", currentPage, searchQuery, statusFilter],
+    queryKey: ["members-list", currentPage, searchQuery, statusFilter],
     queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter),
   });
+
+  const members = apiResponse?.data?.map(mapApiMember) ?? [];
+  const totalItems = apiResponse?.dataCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / (apiResponse?.dataPerPage || ITEMS_PER_PAGE)));
 
   const handleSubmit = () => {
     // Validate required fields
@@ -462,7 +500,21 @@ export default function Members() {
       </div>
 
       {/* Table */}
-      <ResponsiveTable data={paginatedData} columns={columns} keyExtractor={(item) => item.id} pagination={paginationProps} rowActions={rowActions} />
+      <ResponsiveTable
+        data={members}
+        columns={columns}
+        keyExtractor={(item) => item.id}
+        // pagination={paginationProps}
+        isLoading={isLoading}
+        rowActions={rowActions}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalItems,
+          itemsPerPage: ITEMS_PER_PAGE,
+          onPageChange: setCurrentPage,
+        }}
+      />
 
       {/* Quick Add Member Sheet */}
       <QuickAddSheet
