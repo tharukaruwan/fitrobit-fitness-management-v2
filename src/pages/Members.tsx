@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -15,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
 import { useToast } from "@/hooks/use-toast";
 import { subDays } from "date-fns";
+import Request from "@/lib/api/client";
 interface Member {
   id: number;
   memberId: string;
@@ -55,12 +57,12 @@ const isBirthdaySoon = (birthday?: string) => {
   const today = new Date();
   const [month, day] = birthday.split("-").map(Number);
   const birthdayThisYear = new Date(today.getFullYear(), month - 1, day);
-  
+
   // If birthday passed this year, check next year
   if (birthdayThisYear < today) {
     birthdayThisYear.setFullYear(today.getFullYear() + 1);
   }
-  
+
   const diffDays = Math.ceil((birthdayThisYear.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   return diffDays > 0 && diffDays <= 7;
 };
@@ -79,6 +81,28 @@ const sampleData: Member[] = [
   { id: 11, memberId: "MEM-011", name: "Chris Anderson", image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150", email: "chris.a@email.com", phone: "+1 234 567 900", membership: "Standard", classes: ["Boxing"], pt: [], joinDate: "May 1, 2024", expiryDate: "May 1, 2025", status: "expired", branch: "Downtown" },
   { id: 12, memberId: "MEM-012", name: "Michelle Garcia", image: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150", email: "michelle.g@email.com", phone: "+1 234 567 901", membership: "Premium", classes: ["Yoga", "HIIT", "Kickboxing"], pt: ["Sports Performance"], joinDate: "Apr 20, 2024", expiryDate: "Apr 20, 2025", status: "active", branch: "Eastside" },
 ];
+
+interface ApiListResponse {
+  data: Member[];
+  dataCount: number;
+  currentPaginationIndex: number;
+  dataPerPage: number;
+  message: string;
+}
+
+const ITEMS_PER_PAGE = 8;
+
+const fetchMembers = async (page: number, search: string, status: string) => {
+  const params: Record<string, unknown> = {
+    currentPageIndex: page,
+    dataPerPage: ITEMS_PER_PAGE,
+  };
+  if (search) params.search = search;
+  if (status && status !== "all") params["filters[status]"] = status;
+
+  const res = await Request.get<ApiListResponse>("/members/list", params);
+  return res;
+};
 
 const columns: Column<Member>[] = [
   { key: "image", label: "", priority: "always", className: "w-12", render: (value: string, item: Member) => <ImagePreview src={value} alt={item.name} size="md" /> },
@@ -201,6 +225,11 @@ const columns: Column<Member>[] = [
 export default function Members() {
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30));
@@ -248,7 +277,7 @@ export default function Members() {
     { icon: Mail, label: "Email", onClick: handleEmail, variant: "default" },
   ];
 
-  const { paginatedData, searchQuery, handleSearch, filters, handleFilter, paginationProps } = useTableData({
+  const { paginatedData, searchQuery: sampleSearchQuery, handleSearch: sampleHandleSearch, filters, handleFilter, paginationProps } = useTableData({
     data: sampleData,
     itemsPerPage: 8,
     searchFields: ["name", "memberId", "email"],
@@ -257,6 +286,16 @@ export default function Members() {
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
+
+  const { data: apiResponse, isLoading, refetch } = useQuery({
+    queryKey: ["members", currentPage, searchQuery, statusFilter],
+    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter),
+  });
 
   const handleSubmit = () => {
     // Validate required fields
