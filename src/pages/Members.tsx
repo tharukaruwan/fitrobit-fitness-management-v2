@@ -30,7 +30,7 @@ interface ApiMember {
   pt: string[];
   createdAt: string;
   renewalDay: string;
-  status: "Active" | "Inactive" | "_";
+  status: "Active" | "Inactive" | "Lead" | "Paused";
   branchName: string;
   birthday?: string; // Format: "MM-DD"
 }
@@ -54,9 +54,20 @@ interface Member {
   pt: string[];
   joinDate: string;
   expiryDate: string;
-  status: "Active" | "Inactive" | "_";
+  status: "Active" | "Inactive" | "Lead" | "Paused";
   branch: string;
   birthday?: string; // Format: "MM-DD"
+}
+
+interface Branch {
+  _id: string;
+  name: string;
+  status: "Active" | "Inactive";
+}
+
+interface BranchListResponse {
+  data: Branch[];
+  message: string;
 }
 
 const allClasses = [
@@ -233,8 +244,8 @@ const columns: Column<Member>[] = [
     key: "status",
     label: "Status",
     priority: "always",
-    render: (value: "active" | "Inactive" | "pending") => (
-      <StatusBadge status={value === "active" ? "success" : value === "Inactive" ? "error" : "warning"} label={value.charAt(0).toUpperCase() + value.slice(1)} />
+    render: (value: "Active" | "Inactive" | "Lead") => (
+      <StatusBadge status={value === "Active" ? "success" : value === "Inactive" ? "error" : "warning"} label={value.charAt(0).toUpperCase() + value.slice(1)} />
     ),
   },
 ];
@@ -243,15 +254,15 @@ const mapApiMember = (mb: ApiMember): Member => ({
   id: mb._id,
   memberId: mb.memberId,
   name: mb.name,
-  image: mb.image,
+  image: mb.image ? mb.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
   email: mb.email ? mb.email : "_",
   phone: mb.phoneNumber ? mb.phoneNumber : "_",
   membership: mb.memberShipName ? (mb.memberShipName.length > 5 ? mb.memberShipName.substring(0, 5) + ".." : mb.memberShipName) : "_",
   classes: mb.classes ? mb.classes : [],
-  pt: ["Weight Loss", "Cardio Fitness"],
+  pt: [],
   joinDate: mb.createdAt ? new Date(mb.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
   expiryDate: mb.renewalDay ? new Date(mb.renewalDay).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
-  status: mb.status || "_",
+  status: mb.status || "Inactive",
   branch: mb.branchName || "_",
   birthday: mb.birthday || "_"
 });
@@ -263,6 +274,7 @@ export default function Members() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -276,6 +288,32 @@ export default function Members() {
     branch: "",
     birthday: "",
   });
+
+  // Async branch search for filter
+  const searchBranchesForFilter = async (query: string) => {
+    try {
+      const params: Record<string, unknown> = {
+        dataPerPage: 20,
+      };
+      if (query.trim()) {
+        params.search = query;
+      }
+      
+      const res = await Request.get<BranchListResponse>("/branchers/list", params);
+      const branches = res.data || [];
+      
+      return [
+        { value: "all", label: "All Branches" },
+        ...branches.map((branch) => ({
+          value: branch._id,
+          label: branch.name,
+        })),
+      ];
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+      return [{ value: "all", label: "All Branches" }];
+    }
+  };
 
   // Row action handlers
   const handleEdit = (member: Member) => {
@@ -361,6 +399,19 @@ export default function Members() {
 
   return (
     <div className="space-y-4 animate-fade-in">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Members</h1>
+          <p className="text-muted-foreground">Manage members and their details</p>
+        </div>
+        <Button onClick={() => setIsAddOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Member
+        </Button>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
@@ -425,78 +476,35 @@ export default function Members() {
             searchValue={searchQuery}
             onSearchChange={handleSearch}
             filters={[
-              {
-                key: "status",
-                label: "Status",
-                value: filters.status || "all",
-                onChange: (v) => handleFilter("status", v),
-                options: [
-                  { value: "active", label: "Active" },
-                  { value: "expired", label: "Expired" },
-                  { value: "pending", label: "Pending" },
-                ],
-              },
-              {
-                key: "membership",
-                label: "Plan",
-                value: filters.membership || "all",
-                onChange: (v) => handleFilter("membership", v),
-                options: [
-                  { value: "VIP", label: "VIP" },
-                  { value: "Premium", label: "Premium" },
-                  { value: "Standard", label: "Standard" },
-                ],
-              },
-              {
-                key: "classes",
-                label: "Class",
-                value: filters.classes || "all",
-                onChange: (v) => handleFilter("classes", v),
-                type: "async" as const,
-                onSearch: async (query: string) => {
-                  await new Promise((r) => setTimeout(r, 300));
-                  return [
-                    { value: "all", label: "All Classes" },
-                    ...allClasses
-                      .filter((c) => c.toLowerCase().includes(query.toLowerCase()))
-                      .map((c) => ({ value: c, label: c })),
-                  ];
-                },
-              },
-              {
-                key: "pt",
-                label: "PT Package",
-                value: filters.pt || "all",
-                onChange: (v) => handleFilter("pt", v),
-                type: "async" as const,
-                onSearch: async (query: string) => {
-                  await new Promise((r) => setTimeout(r, 300));
-                  return [
-                    { value: "all", label: "All PT Packages" },
-                    ...allPTPackages
-                      .filter((p) => p.toLowerCase().includes(query.toLowerCase()))
-                      .map((p) => ({ value: p, label: p })),
-                  ];
-                },
-              },
-              {
-                key: "branch",
-                label: "Branch",
-                value: filters.branch || "all",
-                onChange: (v) => handleFilter("branch", v),
-                options: [
-                  { value: "Downtown", label: "Downtown" },
-                  { value: "Westside", label: "Westside" },
-                  { value: "Eastside", label: "Eastside" },
-                ],
-              },
-            ]}
+          {
+            key: "status",
+            label: "Status",
+            type: "sync",
+            options: [
+              { label: "All Status", value: "all" },
+              { label: "Online", value: "online" },
+              { label: "Offline", value: "offline" },
+            ],
+            value: statusFilter,
+            onChange: (val) => {
+              setStatusFilter(val);
+              setCurrentPage(1);
+            },
+          },
+          {
+            key: "branch",
+            label: "Branch",
+            type: "async" as const,
+            value: branchFilter || "all",
+            onChange: (val) => {
+              setBranchFilter(val);
+              setCurrentPage(1);
+            },
+            onSearch: searchBranchesForFilter,
+          },
+        ]}
           />
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="shrink-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Member
-        </Button>
       </div>
 
       {/* Table */}
