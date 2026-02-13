@@ -244,6 +244,7 @@ const TrainingCategories = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<TrainingCategory | null>(null);
   
@@ -253,8 +254,6 @@ const TrainingCategories = () => {
     color: "#22c55e",
     status: "Active" as "Active" | "Inactive",
   });
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
     queryKey: ["training-categories", currentPage, searchQuery, statusFilter],
@@ -434,7 +433,7 @@ const TrainingCategories = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Training Categories</h1>
