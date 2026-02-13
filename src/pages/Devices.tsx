@@ -45,8 +45,8 @@ interface ApiDevice {
 interface ApiListResponse {
   analytics: {
     totalDevices: number;
-    activeDevices: number;
-    inactiveDevices: number;
+    onlineDevices: number;
+    offlineDevices: number;
   };
   data: ApiDevice[];
   dataCount: number;
@@ -91,6 +91,8 @@ const mapApiDevice = (device: ApiDevice): Device => ({
   createdAt: device.createdAt ? new Date(device.createdAt).toLocaleString() : "No data found",
   color: device.color,
   type: device.type,
+  firmware: device.firmware || "_",
+  networkAddress: device.networkAddress || "_",
   branch: device.branch ? device.branch._id : "",
   branchName: device.branch ? device.branch.name : "",
 });
@@ -280,7 +282,7 @@ export default function Devices() {
       label: "Status",
       priority: "md",
       render: (value) => (
-        <Badge variant={value === "Active" ? "default" : "secondary"}>
+        <Badge variant={value === "online" ? "default" : "secondary"}>
           {value}
         </Badge>
       ),
@@ -314,9 +316,9 @@ export default function Devices() {
   const totalPages = Math.max(1, Math.ceil(totalItems / (apiResponse?.dataPerPage || ITEMS_PER_PAGE)));
   const analytics = apiResponse?.analytics ? {
     totalDevices: apiResponse?.analytics?.totalDevices || 0,
-    activeDevices: apiResponse?.analytics?.activeDevices || 0,
-    inactiveDevices: apiResponse?.analytics?.inactiveDevices || 0,
-  } : { totalDevices: 0, activeDevices: 0, inactiveDevices: 0 };
+    onlineDevices: apiResponse?.analytics?.onlineDevices || 0,
+    offlineDevices: apiResponse?.analytics?.offlineDevices || 0,
+  } : { totalDevices: 0, onlineDevices: 0, offlineDevices: 0 };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -431,9 +433,31 @@ export default function Devices() {
     setIsEditOpen(true);
   };
 
-  const allClasses = [
-    "Yoga", "HIIT", "Spin", "Pilates", "CrossFit", "Boxing", "Zumba", "Strength Training", "Swimming", "Kickboxing",
-  ];
+  // Async branch search for filter
+  const searchBranchesForFilter = async (query: string) => {
+    try {
+      const params: Record<string, unknown> = {
+        dataPerPage: 20,
+      };
+      if (query.trim()) {
+        params.search = query;
+      }
+      
+      const res = await Request.get<BranchListResponse>("/branchers/list", params);
+      const branches = res.data || [];
+      
+      return [
+        { value: "all", label: "All Branches" },
+        ...branches.map((branch) => ({
+          value: branch._id,
+          label: branch.name,
+        })),
+      ];
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+      return [{ value: "all", label: "All Branches" }];
+    }
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -467,7 +491,7 @@ export default function Devices() {
           </div>
         </div>
 
-        {/* Active Devices */}
+        {/* Online Devices */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
@@ -475,14 +499,14 @@ export default function Devices() {
             </div>
             <div>
               <p className="text-2xl font-bold text-card-foreground">
-                {analytics.activeDevices}
+                {analytics.onlineDevices}
               </p>
-              <p className="text-xs text-muted-foreground">Active Devices</p>
+              <p className="text-xs text-muted-foreground">Online Devices</p>
             </div>
           </div>
         </div>
 
-        {/* Inactive Devices */}
+        {/* Offline Devices */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
@@ -490,9 +514,9 @@ export default function Devices() {
             </div>
             <div>
               <p className="text-2xl font-bold text-card-foreground">
-                {analytics.inactiveDevices}
+                {analytics.offlineDevices}
               </p>
-              <p className="text-xs text-muted-foreground">Inactive Devices</p>
+              <p className="text-xs text-muted-foreground">Offline Devices</p>
             </div>
           </div>
         </div>
@@ -510,8 +534,8 @@ export default function Devices() {
             type: "sync",
             options: [
               { label: "All Status", value: "all" },
-              { label: "Offline", value: "offline" },
               { label: "Online", value: "online" },
+              { label: "Offline", value: "offline" },
             ],
             value: statusFilter,
             onChange: (val) => {
@@ -522,21 +546,13 @@ export default function Devices() {
           {
             key: "branch",
             label: "Branch",
+            type: "async" as const,
             value: branchFilter || "all",
-            onChange: (v) => {
-              setBranchFilter(v);
+            onChange: (val) => {
+              setBranchFilter(val);
               setCurrentPage(1);
             },
-            type: "async" as const,
-            onSearch: async (query: string) => {
-              await new Promise((r) => setTimeout(r, 300));
-              return [
-                { value: "all", label: "All Branches" },
-                ...allClasses
-                  .filter((c) => c.toLowerCase().includes(query.toLowerCase()))
-                  .map((c) => ({ value: c, label: c })),
-              ];
-            },
+            onSearch: searchBranchesForFilter,
           },
         ]}
       />
