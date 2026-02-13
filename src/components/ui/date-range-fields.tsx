@@ -14,7 +14,7 @@ const months = [
 ];
 
 const currentYear = new Date().getFullYear();
-const defaultYears = Array.from({ length: 10 }, (_, i) => currentYear - i);
+const defaultYears = Array.from({ length: 20 }, (_, i) => currentYear - i);
 
 interface DateRangeFieldsProps {
   startDate: Date;
@@ -35,6 +35,20 @@ export function DateRangeFields({
   disableFuture = true,
   years = defaultYears,
 }: DateRangeFieldsProps) {
+  
+  // Helper to handle date part changes safely
+  const handleDatePartChange = (
+    currentDate: Date, 
+    part: 'month' | 'year', 
+    value: string, 
+    callback: (d: Date) => void
+  ) => {
+    const newDate = new Date(currentDate);
+    if (part === 'month') newDate.setMonth(parseInt(value));
+    if (part === 'year') newDate.setFullYear(parseInt(value));
+    callback(newDate);
+  };
+
   return (
     <div className={cn("flex flex-wrap items-end gap-3", className)}>
       {/* Start Date */}
@@ -53,37 +67,31 @@ export function DateRangeFields({
               {startDate ? format(startDate, "MMM d, yyyy") : <span>Pick a date</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <div className="flex items-center gap-2 p-3 border-b">
+          {/* Added z-50 and pointer-events-auto to ensure select works */}
+          <PopoverContent className="w-auto p-0 z-50" align="start">
+            <div className="flex items-center gap-2 p-3 border-b bg-background">
               <Select
                 value={startDate.getMonth().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(startDate);
-                  newDate.setMonth(parseInt(value));
-                  onStartDateChange(newDate);
-                }}
+                onValueChange={(val) => handleDatePartChange(startDate, 'month', val, onStartDateChange)}
               >
-                <SelectTrigger className="w-[120px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[120px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[60]">
                   {months.map((month, index) => (
                     <SelectItem key={month} value={index.toString()}>{month}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              
               <Select
                 value={startDate.getFullYear().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(startDate);
-                  newDate.setFullYear(parseInt(value));
-                  onStartDateChange(newDate);
-                }}
+                onValueChange={(val) => handleDatePartChange(startDate, 'year', val, onStartDateChange)}
               >
-                <SelectTrigger className="w-[90px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[90px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
+                <SelectContent position="popper" className="z-[60]">
                   {years.map((year) => (
                     <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                   ))}
@@ -94,10 +102,11 @@ export function DateRangeFields({
               mode="single"
               selected={startDate}
               onSelect={(date) => date && onStartDateChange(date)}
+              // This prop is crucial for the calendar to jump when dropdown changes
               month={startDate}
+              onMonthChange={onStartDateChange}
               disabled={disableFuture ? (date) => date > new Date() : undefined}
               initialFocus
-              className={cn("p-3 pointer-events-auto")}
             />
           </PopoverContent>
         </Popover>
@@ -119,37 +128,30 @@ export function DateRangeFields({
               {endDate ? format(endDate, "MMM d, yyyy") : <span>Pick a date</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <div className="flex items-center gap-2 p-3 border-b">
+          <PopoverContent className="w-auto p-0 z-50" align="start">
+            <div className="flex items-center gap-2 p-3 border-b bg-background">
               <Select
                 value={endDate.getMonth().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(endDate);
-                  newDate.setMonth(parseInt(value));
-                  onEndDateChange(newDate);
-                }}
+                onValueChange={(val) => handleDatePartChange(endDate, 'month', val, onEndDateChange)}
               >
-                <SelectTrigger className="w-[120px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[120px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[60]">
                   {months.map((month, index) => (
                     <SelectItem key={month} value={index.toString()}>{month}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              
               <Select
                 value={endDate.getFullYear().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(endDate);
-                  newDate.setFullYear(parseInt(value));
-                  onEndDateChange(newDate);
-                }}
+                onValueChange={(val) => handleDatePartChange(endDate, 'year', val, onEndDateChange)}
               >
-                <SelectTrigger className="w-[90px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[90px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
+                <SelectContent position="popper" className="z-[60]">
                   {years.map((year) => (
                     <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                   ))}
@@ -161,9 +163,9 @@ export function DateRangeFields({
               selected={endDate}
               onSelect={(date) => date && onEndDateChange(date)}
               month={endDate}
+              onMonthChange={onEndDateChange}
               disabled={disableFuture ? (date) => date > new Date() : undefined}
               initialFocus
-              className={cn("p-3 pointer-events-auto")}
             />
           </PopoverContent>
         </Popover>

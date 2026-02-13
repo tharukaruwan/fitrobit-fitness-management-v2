@@ -3,20 +3,40 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { useTableData } from "@/hooks/use-table-data";
 import { ImagePreview } from "@/components/ui/image-preview";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DateRangeFields } from "@/components/ui/date-range-fields";
-import { Users, UserPlus, UserCheck, UserX, Cake, Plus, Pencil, Eye, CreditCard, Printer, MessageCircle, Mail } from "lucide-react";
+import { Users, UserPlus, UserCheck, UserX, Cake, Plus, Pencil, Eye, Trash2, MessageCircle, Mail, User, UserRound, Contact, Shield   } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
-import { useToast } from "@/hooks/use-toast";
 import { subDays } from "date-fns";
+import { toast } from "sonner";
 import Request from "@/lib/api/client";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { cleanObject } from "@/utils/helpers";
+
+interface Branch {
+  _id: string;
+  name: string;
+  status: "Active" | "Inactive";
+}
+
+interface BranchListResponse {
+  data: Branch[];
+  message: string;
+}
 
 interface ApiMember {
   _id: string;
@@ -30,9 +50,10 @@ interface ApiMember {
   pt: string[];
   createdAt: string;
   renewalDay: string;
+  gender?: "male" | "female" | "other";
   status: "Active" | "Inactive" | "Lead" | "Paused";
-  branchName: string;
-  birthday?: string; // Format: "MM-DD"
+  branch: Branch;
+  dateOfBirth?: string; // Format: "MM-DD"
 }
 interface ApiListResponse {
   analytics: {
@@ -50,8 +71,12 @@ interface ApiListResponse {
 }
 
 interface Member {
-  id: string | number;
+  id: string;
   memberId: string;
+  gender?: "male" | "female" | "other";
+  phoneNumber?: string;
+  nic?: string;
+  remark?: string;
   name: string;
   image: string;
   email: string;
@@ -62,46 +87,27 @@ interface Member {
   joinDate: string;
   expiryDate: string;
   status: "Active" | "Inactive" | "Lead" | "Paused";
-  branch: string;
-  birthday?: string; // Format: "MM-DD"
+  branch?: string;
+  branchName?: string;
+  dateOfBirth?: string; // Format: "MM-DD"
 }
 
-interface Branch {
-  _id: string;
-  name: string;
-  status: "Active" | "Inactive";
-}
-
-interface BranchListResponse {
-  data: Branch[];
-  message: string;
-}
-
-const allClasses = [
-  "Yoga", "HIIT", "Spin", "Pilates", "CrossFit", "Boxing", "Zumba", "Strength Training", "Swimming", "Kickboxing",
-];
-
-const allPTPackages = [
-  "Weight Loss", "Muscle Building", "Cardio Fitness", "Flexibility", "Sports Performance", "Rehabilitation", "Body Toning", "Endurance",
-];
-
-
-// Helper to check if today is birthday
-const isBirthdayToday = (birthday?: string) => {
-  if (!birthday) return false;
+// Helper to check if today is dateOfBirth
+const isBirthdayToday = (dateOfBirth?: string) => {
+  if (!dateOfBirth) return false;
   const today = new Date();
-  const [month, day] = birthday.split("-").map(Number);
+  const [month, day] = dateOfBirth.split("-").map(Number);
   return today.getMonth() + 1 === month && today.getDate() === day;
 };
 
-// Helper to check if birthday is within next 7 days
-const isBirthdaySoon = (birthday?: string) => {
-  if (!birthday) return false;
+// Helper to check if dateOfBirth is within next 7 days
+const isBirthdaySoon = (dateOfBirth?: string) => {
+  if (!dateOfBirth) return false;
   const today = new Date();
-  const [month, day] = birthday.split("-").map(Number);
+  const [month, day] = dateOfBirth.split("-").map(Number);
   const birthdayThisYear = new Date(today.getFullYear(), month - 1, day);
 
-  // If birthday passed this year, check next year
+  // If dateOfBirth passed this year, check next year
   if (birthdayThisYear < today) {
     birthdayThisYear.setFullYear(today.getFullYear() + 1);
   }
@@ -112,7 +118,7 @@ const isBirthdaySoon = (birthday?: string) => {
 
 const ITEMS_PER_PAGE = 8;
 
-const fetchMembers = async (page: number, search: string, status: string, branch: string) => {
+const fetchMembers = async (page: number, search: string, status: string, branch: string, gender: string) => {
   const params: Record<string, unknown> = {
     currentPageIndex: page,
     dataPerPage: ITEMS_PER_PAGE,
@@ -120,6 +126,7 @@ const fetchMembers = async (page: number, search: string, status: string, branch
   if (search) params.search = search;
   if (status && status !== "all") params["filters[status]"] = status;
   if (branch && branch !== "all") params["filters[branch]"] = branch;
+  if (gender && gender !== "all") params["filters[gender]"] = gender;
 
   const res = await Request.get<ApiListResponse>("/members/list", params);
   return res;
@@ -135,9 +142,22 @@ const columns: Column<Member>[] = [
       <div className="flex items-center gap-2">
         <div>
           <p className="font-medium">{value}</p>
-          <p className="text-xs text-muted-foreground">{item.memberId}</p>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            {item.gender === "male" && (
+              <User className="w-2.5 h-2.5 text-blue-500" />
+            )}
+
+            {item.gender === "female" && (
+              <UserRound className="w-2.5 h-2.5 text-pink-500" />
+            )}
+
+            {item.gender === "other" && (
+              <Contact className="w-2.5 h-2.5 text-gray-500" />
+            )}
+            <span>{item.memberId}</span>
+          </div>
         </div>
-        {isBirthdayToday(item.birthday) && (
+        {isBirthdayToday(item.dateOfBirth) && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
@@ -151,7 +171,7 @@ const columns: Column<Member>[] = [
             </Tooltip>
           </TooltipProvider>
         )}
-        {!isBirthdayToday(item.birthday) && isBirthdaySoon(item.birthday) && (
+        {!isBirthdayToday(item.dateOfBirth) && isBirthdaySoon(item.dateOfBirth) && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
@@ -168,17 +188,21 @@ const columns: Column<Member>[] = [
       </div>
     ),
   },
-  { key: "email", label: "Email", priority: "lg" },
   { key: "phone", label: "Phone", priority: "xl" },
   {
     key: "membership",
     label: "Plan",
     priority: "md",
-    render: (value: string) => (
-      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${value === "VIP" ? "bg-warning/10 text-warning" : value === "Premium" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-        {value}
-      </span>
-    ),
+    render: (value: string | undefined) => {
+      return (value && value !== "_") ? (
+        <Badge variant="outline" className="gap-1">
+          <Shield className="w-3 h-3" />
+          {value}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground text-xs">_</span>
+      );
+    },
   },
   {
     key: "classes",
@@ -232,7 +256,7 @@ const columns: Column<Member>[] = [
   },
   { key: "joinDate", label: "Joined", priority: "lg" },
   { key: "expiryDate", label: "Expires", priority: "xl" },
-  { key: "branch", label: "Branch", priority: "xl" },
+  { key: "branchName", label: "Branch", priority: "xl" },
   {
     key: "status",
     label: "Status",
@@ -247,39 +271,221 @@ const mapApiMember = (mb: ApiMember): Member => ({
   id: mb._id,
   memberId: mb.memberId,
   name: mb.name,
+  gender: mb.gender,
   image: mb.image ? mb.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
-  email: mb.email ? mb.email : "_",
-  phone: mb.phoneNumber ? mb.phoneNumber : "_",
+  email: mb.email ? mb.email : "",
+  phone: mb.phoneNumber ? mb.phoneNumber : "",
   membership: mb.memberShipName ? (mb.memberShipName.length > 5 ? mb.memberShipName.substring(0, 5) + ".." : mb.memberShipName) : "_",
   classes: mb.classes ? mb.classes : [],
   pt: [],
   joinDate: mb.createdAt ? new Date(mb.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
   expiryDate: mb.renewalDay ? new Date(mb.renewalDay).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
   status: mb.status || "Inactive",
-  branch: mb.branchName || "_",
-  birthday: mb.birthday || "_"
+  dateOfBirth: mb.dateOfBirth || "",
+  branch: mb.branch ? mb.branch._id : "",
+  branchName: mb.branch ? mb.branch.name : "",
 });
 
+const fetchBranches = async () => {
+  const params = {
+    "filters[status]": "Active",
+    dataPerPage: 100, // Get all active branches
+  };
+  const res = await Request.get<BranchListResponse>("/branchers/list", params);
+  return res.data || [];
+};
+
+interface DeviceFormProps {
+  formData: {
+    memberId: string;
+    name: string;
+    phoneNumber: string;
+    email: string;
+    branch: string;
+    status: "Active" | "Inactive" | "Lead" | "Paused";
+    gender?: "male" | "female" | "other";
+    nic?: string;
+    remark?: string;
+    dateOfBirth?: string;
+  };
+  setFormData: React.Dispatch<React.SetStateAction<{
+    memberId: string;
+    name: string;
+    phoneNumber: string;
+    email: string;
+    branch: string;
+    status: "Active" | "Inactive" | "Lead" | "Paused";
+    gender?: "male" | "female" | "other";
+    nic?: string;
+    remark?: string;
+    dateOfBirth?: string;
+  }>>;
+}
+
+const MemberForm = ({ formData, setFormData }: DeviceFormProps) => {
+  // Fetch branches for dropdown
+  const { data: branches = [], isLoading: branchesLoading } = useQuery({
+    queryKey: ["branches-dropdown"],
+    queryFn: fetchBranches,
+  });
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="memberId">Member Id <span className="text-red-500">*</span></Label>
+        <Input
+          id="memberId"
+          value={formData.memberId}
+          onChange={(e) => setFormData(prev => ({ ...prev, memberId: e.target.value }))}
+          placeholder="e.g., 12345"
+          className="mt-1.5"
+        />
+      </div>
+      <div>
+        <Label htmlFor="name">Member Name <span className="text-red-500">*</span></Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          placeholder="e.g., John Doe"
+          className="mt-1.5"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="gender">Gender <span className="text-destructive">*</span></Label>
+        <Select value={formData.gender} onValueChange={(v) => setFormData(prev => ({ ...prev, gender: v as "male" | "female" | "other" }))}>
+          <SelectTrigger id="gender">
+            <SelectValue placeholder="Select gender" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="male">Male</SelectItem>
+            <SelectItem value="female">Female</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="status">Status <span className="text-destructive">*</span></Label>
+        <Select value={formData.status} onValueChange={(v) => setFormData(prev => ({ ...prev, status: v as "Active" | "Inactive" | "Lead" | "Paused" }))}>
+          <SelectTrigger id="status">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Inactive">Inactive</SelectItem>
+            <SelectItem value="Lead">Lead</SelectItem>
+            <SelectItem value="Paused">Paused</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="dateOfBirth">Birthday</Label>
+        <Input
+          id="dateOfBirth"
+          type="date"
+          value={formData.dateOfBirth}
+          onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+        />
+      </div>
+      <div>
+        <Label htmlFor="phoneNumber">Phone No </Label>
+        <Input
+          id="phoneNumber"
+          value={formData.phoneNumber}
+          onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+          placeholder="e.g., 0771234567"
+          className="mt-1.5"
+        />
+      </div>
+      <div>
+        <Label htmlFor="email">Email </Label>
+        <Input
+          id="email"
+          value={formData.email}
+          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+          placeholder="e.g., john.doe@example.com"
+          className="mt-1.5"
+        />
+      </div>
+      <div>
+        <Label htmlFor="nic">NIC </Label>
+        <Input
+          id="nic"
+          value={formData.nic}
+          onChange={(e) => setFormData(prev => ({ ...prev, nic: e.target.value }))}
+          placeholder="e.g., 123456789V"
+          className="mt-1.5"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="branch">Branch </Label>
+        <Select
+          value={formData.branch}
+          onValueChange={(v) => setFormData(prev => ({ ...prev, branch: v }))}
+          disabled={branchesLoading}
+        >
+          <SelectTrigger id="branch">
+            <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select branch"} />
+          </SelectTrigger>
+          <SelectContent>
+            {branches.length === 0 && !branchesLoading ? (
+              <SelectItem value="no-branches" disabled>
+                No active branches available
+              </SelectItem>
+            ) : (
+              branches.map((branch) => (
+                <SelectItem key={branch._id} value={branch._id}>
+                  {branch.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {branches.length === 0 && !branchesLoading && (
+          <p className="text-xs text-muted-foreground">
+            Please create an active branch first
+          </p>
+        )}
+      </div>
+      <div>
+        <Label htmlFor="remark">Remark </Label>
+        <Input
+          id="remark"
+          value={formData.remark}
+          onChange={(e) => setFormData(prev => ({ ...prev, remark: e.target.value }))}
+          placeholder="e.g., Member is a regular customer"
+          className="mt-1.5"
+        />
+      </div>
+    </div>
+  );
+};
+
 export default function Members() {
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [genderFilter, setGenderFilter] = useState("all");
   const [branchFilter, setBranchFilter] = useState("all");
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30));
   const [endDate, setEndDate] = useState<Date>(new Date());
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<DeviceFormProps["formData"]>({
+    memberId: "",
+    nic: "",
     name: "",
+    phoneNumber: "",
     email: "",
-    phone: "",
-    membership: "",
+    gender: "other",
+    status: "Active",
     branch: "",
-    birthday: "",
   });
 
   // Async branch search for filter
@@ -291,10 +497,10 @@ export default function Members() {
       if (query.trim()) {
         params.search = query;
       }
-      
+
       const res = await Request.get<BranchListResponse>("/branchers/list", params);
       const branches = res.data || [];
-      
+
       return [
         { value: "all", label: "All Branches" },
         ...branches.map((branch) => ({
@@ -306,11 +512,6 @@ export default function Members() {
       console.error("Failed to fetch branches:", error);
       return [{ value: "all", label: "All Branches" }];
     }
-  };
-
-  // Row action handlers
-  const handleEdit = (member: Member) => {
-    toast({ title: "Edit Member", description: `Editing ${member.name}` });
   };
 
   const handleView = (member: Member) => {
@@ -326,15 +527,12 @@ export default function Members() {
   };
 
   const rowActions: RowAction<Member>[] = [
-    { icon: Pencil, label: "Edit", onClick: handleEdit, variant: "default" },
+    { icon: Pencil, label: "Edit", onClick: (mb) => openEditForm(mb), variant: "default" },
     { icon: Eye, label: "View", onClick: handleView, variant: "primary" },
     { icon: MessageCircle, label: "WhatsApp", onClick: handleWhatsApp, variant: "default" },
     { icon: Mail, label: "Email", onClick: handleEmail, variant: "default" },
+    { label: "Delete", icon: Trash2, onClick: (member) => { setSelectedMember(member); setIsDeleteOpen(true); }, variant: "danger" },
   ];
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -342,8 +540,8 @@ export default function Members() {
   };
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
-    queryKey: ["members-list", currentPage, searchQuery,  statusFilter, branchFilter],
-    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter, branchFilter),
+    queryKey: ["members-list", currentPage, searchQuery, statusFilter, branchFilter, genderFilter],
+    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter, branchFilter, genderFilter),
   });
 
   const members = apiResponse?.data?.map(mapApiMember) ?? [];
@@ -357,28 +555,114 @@ export default function Members() {
     pausedMembers: apiResponse?.analytics?.pausedMembers || 0,
   } : { totalMembers: 0, activeMembers: 0, inactiveMembers: 0, leadMembers: 0, pausedMembers: 0 };
 
-  const handleSubmit = () => {
-    // Validate required fields
-    if (!formData.name || !formData.email || !formData.phone || !formData.membership || !formData.branch) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
+  const handleAddMember = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      toast.error("Member name is required");
+      return;
+    }
+    if (!formData.memberId.trim()) {
+      toast.error("Member ID is required");
+      return;
+    }
+    if (!formData.gender) {
+      toast.error("Member gender is required");
       return;
     }
 
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Member Added",
-        description: `${formData.name} has been added successfully.`,
-      });
-      setIsSubmitting(false);
+    try {
+      await Request.post("/members/create", formData);
+      toast.success("Member added successfully");
       setIsAddOpen(false);
-      setFormData({ name: "", email: "", phone: "", membership: "", branch: "", birthday: "" });
-    }, 1000);
+      resetForm();
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to add member");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditMember = async () => {
+    if (!selectedMember) return;
+
+    // Validation
+    if (!formData.name.trim()) {
+      toast.error("Member name is required");
+      return;
+    }
+    if (!formData.memberId.trim()) {
+      toast.error("Member ID is required");
+      return;
+    }
+    if (!formData.gender) {
+      toast.error("Member gender is required");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await Request.put(`/members/${selectedMember.id}`, cleanObject(formData));
+      toast.success("Member updated successfully");
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to update member");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteMember = async () => {
+    if (!selectedMember) return;
+
+    setIsSubmitting(true);
+    try {
+      await Request.delete(`/members/${selectedMember.id}`);
+      toast.success("Member deleted successfully");
+      setIsDeleteOpen(false);
+      setSelectedMember(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to delete member");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      memberId: "",
+      gender: "other",
+      branch: "",
+      phoneNumber: "",
+      email: "",
+      nic: "",
+      remark: "",
+      dateOfBirth: "",
+      status: "Active",
+    });
+    setSelectedMember(null);
+  };
+
+  const openEditForm = (mb: Member) => {
+    setSelectedMember(mb);
+    setFormData({
+      name: mb.name,
+      memberId: mb.memberId,
+      gender: mb.gender || "other",
+      branch: mb.branch || "",
+      phoneNumber: mb.phoneNumber || "",
+      email: mb.email || "",
+      nic: mb.nic || "",
+      remark: mb.remark || "",
+      dateOfBirth: mb.dateOfBirth || "",
+      status: mb.status,
+    });
+    setIsEditOpen(true);
   };
 
   return (
@@ -460,35 +744,51 @@ export default function Members() {
             searchValue={searchQuery}
             onSearchChange={handleSearch}
             filters={[
-          {
-            key: "status",
-            label: "Status",
-            type: "sync",
-            options: [
-              { label: "All Status", value: "all" },
-              { label: "Active", value: "Active" },
-              { label: "Inactive", value: "Inactive" },
-              { label: "Lead", value: "Lead" },
-              { label: "Paused", value: "Pau  sed" },
-            ],
-            value: statusFilter,
-            onChange: (val) => {
-              setStatusFilter(val);
-              setCurrentPage(1);
-            },
-          },
-          {
-            key: "branch",
-            label: "Branch",
-            type: "async" as const,
-            value: branchFilter || "all",
-            onChange: (val) => {
-              setBranchFilter(val);
-              setCurrentPage(1);
-            },
-            onSearch: searchBranchesForFilter,
-          },
-        ]}
+              {
+                key: "status",
+                label: "Status",
+                type: "sync",
+                options: [
+                  { label: "All Status", value: "all" },
+                  { label: "Active", value: "Active" },
+                  { label: "Inactive", value: "Inactive" },
+                  { label: "Lead", value: "Lead" },
+                  { label: "Paused", value: "Paused" },
+                ],
+                value: statusFilter,
+                onChange: (val) => {
+                  setStatusFilter(val);
+                  setCurrentPage(1);
+                },
+              },
+              {
+                key: "gender",
+                label: "Gender",
+                type: "sync",
+                options: [
+                  { label: "All Genders", value: "all" },
+                  { label: "Male", value: "male" },
+                  { label: "Female", value: "female" },
+                  { label: "Other", value: "other" },
+                ],
+                value: genderFilter,
+                onChange: (val) => {
+                  setGenderFilter(val);
+                  setCurrentPage(1);
+                },
+              },
+              {
+                key: "branch",
+                label: "Branch",
+                type: "async" as const,
+                value: branchFilter || "all",
+                onChange: (val) => {
+                  setBranchFilter(val);
+                  setCurrentPage(1);
+                },
+                onSearch: searchBranchesForFilter,
+              },
+            ]}
           />
         </div>
       </div>
@@ -516,82 +816,54 @@ export default function Members() {
         onOpenChange={setIsAddOpen}
         title="Add New Member"
         description="Fill in the details to register a new member."
-        onSubmit={handleSubmit}
+        onSubmit={handleAddMember}
         submitLabel="Add Member"
         isSubmitting={isSubmitting}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
-            <Input
-              id="name"
-              placeholder="Enter full name"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter email address"
-              value={formData.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone <span className="text-destructive">*</span></Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="Enter phone number"
-              value={formData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="membership">Membership Plan <span className="text-destructive">*</span></Label>
-            <Select value={formData.membership} onValueChange={(v) => handleInputChange("membership", v)}>
-              <SelectTrigger id="membership">
-                <SelectValue placeholder="Select plan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Standard">Standard</SelectItem>
-                <SelectItem value="Premium">Premium</SelectItem>
-                <SelectItem value="VIP">VIP</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="branch">Branch <span className="text-destructive">*</span></Label>
-            <Select value={formData.branch} onValueChange={(v) => handleInputChange("branch", v)}>
-              <SelectTrigger id="branch">
-                <SelectValue placeholder="Select branch" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Downtown">Downtown</SelectItem>
-                <SelectItem value="Westside">Westside</SelectItem>
-                <SelectItem value="Eastside">Eastside</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="birthday">Birthday (Optional)</Label>
-            <Input
-              id="birthday"
-              type="date"
-              value={formData.birthday}
-              onChange={(e) => handleInputChange("birthday", e.target.value)}
-            />
-          </div>
-        </div>
+        <MemberForm formData={formData} setFormData={setFormData} />
       </QuickAddSheet>
+
+      {/* Edit Employee Sheet */}
+      <QuickAddSheet
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        title="Edit Member"
+        description="Update member details"
+        onSubmit={handleEditMember}
+        submitLabel="Save Changes"
+      >
+        <MemberForm formData={formData} setFormData={setFormData} />
+      </QuickAddSheet>
+
+      {/* Delete Member */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{selectedMember?.name}"?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteMember}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
