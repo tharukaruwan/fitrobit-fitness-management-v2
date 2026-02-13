@@ -118,7 +118,7 @@ const isBirthdaySoon = (dateOfBirth?: string) => {
 
 const ITEMS_PER_PAGE = 8;
 
-const fetchMembers = async (page: number, search: string, status: string, branch: string, gender: string) => {
+const fetchMembers = async (page: number, search: string, status: string, branch: string, gender: string, startDate?: Date, endDate?: Date) => {
   const params: Record<string, unknown> = {
     currentPageIndex: page,
     dataPerPage: ITEMS_PER_PAGE,
@@ -127,6 +127,8 @@ const fetchMembers = async (page: number, search: string, status: string, branch
   if (status && status !== "all") params["filters[status]"] = status;
   if (branch && branch !== "all") params["filters[branch]"] = branch;
   if (gender && gender !== "all") params["filters[gender]"] = gender;
+  if (startDate) params["startDay"] = startDate;
+  if (endDate) params["endDay"] = endDate;
 
   const res = await Request.get<ApiListResponse>("/members/list", params);
   return res;
@@ -273,8 +275,8 @@ const mapApiMember = (mb: ApiMember): Member => ({
   name: mb.name,
   gender: mb.gender,
   image: mb.image ? mb.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
-  email: mb.email ? mb.email : "",
-  phone: mb.phoneNumber ? mb.phoneNumber : "",
+  email: mb.email ? mb.email : "_",
+  phone: mb.phoneNumber ? mb.phoneNumber : "_",
   membership: mb.memberShipName ? (mb.memberShipName.length > 5 ? mb.memberShipName.substring(0, 5) + ".." : mb.memberShipName) : "_",
   classes: mb.classes ? mb.classes : [],
   pt: [],
@@ -282,8 +284,8 @@ const mapApiMember = (mb: ApiMember): Member => ({
   expiryDate: mb.renewalDay ? new Date(mb.renewalDay).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
   status: mb.status || "Inactive",
   dateOfBirth: mb.dateOfBirth || "",
-  branch: mb.branch ? mb.branch._id : "",
-  branchName: mb.branch ? mb.branch.name : "",
+  branch: mb.branch ? mb.branch._id : "_",
+  branchName: mb.branch ? mb.branch.name : "_",
 });
 
 const fetchBranches = async () => {
@@ -475,8 +477,8 @@ export default function Members() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30));
-  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [formData, setFormData] = useState<DeviceFormProps["formData"]>({
     memberId: "",
     nic: "",
@@ -540,8 +542,8 @@ export default function Members() {
   };
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
-    queryKey: ["members-list", currentPage, searchQuery, statusFilter, branchFilter, genderFilter],
-    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter, branchFilter, genderFilter),
+    queryKey: ["members-list", currentPage, searchQuery, statusFilter, branchFilter, genderFilter, startDate, endDate],
+    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter, branchFilter, genderFilter, startDate, endDate),
   });
 
   const members = apiResponse?.data?.map(mapApiMember) ?? [];
