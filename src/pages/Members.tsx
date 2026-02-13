@@ -317,14 +317,6 @@ export default function Members() {
     navigate(`/members/${member.id}`);
   };
 
-  const handlePayment = (member: Member) => {
-    toast({ title: "Payment", description: `Processing payment for ${member.name}` });
-  };
-
-  const handlePrint = (member: Member) => {
-    toast({ title: "Print", description: `Printing details for ${member.name}` });
-  };
-
   const handleWhatsApp = (member: Member) => {
     window.open(`https://wa.me/${member.phone.replace(/\D/g, "")}`, "_blank");
   };
@@ -336,8 +328,6 @@ export default function Members() {
   const rowActions: RowAction<Member>[] = [
     { icon: Pencil, label: "Edit", onClick: handleEdit, variant: "default" },
     { icon: Eye, label: "View", onClick: handleView, variant: "primary" },
-    { icon: CreditCard, label: "Payment", onClick: handlePayment, variant: "default" },
-    { icon: Printer, label: "Print", onClick: handlePrint, variant: "default" },
     { icon: MessageCircle, label: "WhatsApp", onClick: handleWhatsApp, variant: "default" },
     { icon: Mail, label: "Email", onClick: handleEmail, variant: "default" },
   ];
