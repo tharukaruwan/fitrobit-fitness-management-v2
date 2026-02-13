@@ -1,116 +1,438 @@
-import { ResponsiveTable, Column } from "@/components/ui/responsive-table";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { useTableData } from "@/hooks/use-table-data";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { Smartphone, Wifi, WifiOff, Activity } from "lucide-react";
+import { Building2, Phone, Palette, Pencil, Trash2, Plus, XCircle, CheckCircle2, Smartphone, Wifi, WifiOff, Activity, FingerprintIcon, LucideTimer } from "lucide-react";
+import { toast } from "sonner";
+import Request from "@/lib/api/client";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface Device {
-  id: number;
-  deviceId: string;
+const ITEMS_PER_PAGE = 8;
+
+const colorOptions = [
+  "#22c55e", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444", "#14b8a6"
+];
+
+interface ApiDevice {
+  _id: string;
   name: string;
-  type: string;
-  location: string;
-  ipAddress: string;
-  lastSync: string;
-  firmware: string;
-  status: "online" | "offline" | "maintenance";
-  branch: string;
+  type: "Fingerprint" | "QR" | "Face" | "RFID";
+  deviceId?: string;
+  firmware?: string;
+  networkAddress?: string;
+  color?: string;
+  status?: string;
+  lastUpdated?: Date;
+  branch?: string;
+  branchName: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-const sampleData: Device[] = [
-  { id: 1, deviceId: "DEV-001", name: "Main Entrance Gate", type: "Access Control", location: "Front Door", ipAddress: "192.168.1.10", lastSync: "2 min ago", firmware: "v2.4.1", status: "online", branch: "Downtown" },
-  { id: 2, deviceId: "DEV-002", name: "Gym Floor Scanner", type: "Biometric", location: "Main Floor", ipAddress: "192.168.1.11", lastSync: "1 min ago", firmware: "v2.4.1", status: "online", branch: "Downtown" },
-  { id: 3, deviceId: "DEV-003", name: "Pool Area Gate", type: "Access Control", location: "Pool Entrance", ipAddress: "192.168.1.12", lastSync: "5 min ago", firmware: "v2.3.8", status: "online", branch: "Downtown" },
-  { id: 4, deviceId: "DEV-004", name: "Locker Room A", type: "RFID Reader", location: "Men's Locker", ipAddress: "192.168.1.13", lastSync: "30 min ago", firmware: "v2.4.0", status: "offline", branch: "Westside" },
-  { id: 5, deviceId: "DEV-005", name: "Emergency Exit", type: "Access Control", location: "Back Door", ipAddress: "192.168.1.14", lastSync: "3 min ago", firmware: "v2.4.1", status: "online", branch: "Downtown" },
-  { id: 6, deviceId: "DEV-006", name: "Parking Barrier", type: "Gate Control", location: "Parking Lot", ipAddress: "192.168.1.15", lastSync: "2 hours ago", firmware: "v2.2.0", status: "maintenance", branch: "Eastside" },
-  { id: 7, deviceId: "DEV-007", name: "Reception Kiosk", type: "Check-in Terminal", location: "Lobby", ipAddress: "192.168.1.16", lastSync: "1 min ago", firmware: "v3.0.0", status: "online", branch: "Downtown" },
-  { id: 8, deviceId: "DEV-008", name: "Staff Entrance", type: "Access Control", location: "Staff Door", ipAddress: "192.168.1.17", lastSync: "4 min ago", firmware: "v2.4.1", status: "online", branch: "Westside" },
-  { id: 9, deviceId: "DEV-009", name: "VIP Lounge Gate", type: "Access Control", location: "VIP Area", ipAddress: "192.168.1.18", lastSync: "6 min ago", firmware: "v2.4.1", status: "online", branch: "Downtown" },
-  { id: 10, deviceId: "DEV-010", name: "Locker Room B", type: "RFID Reader", location: "Women's Locker", ipAddress: "192.168.1.19", lastSync: "45 min ago", firmware: "v2.3.5", status: "offline", branch: "Eastside" },
-];
+interface ApiListResponse {
+  analytics: {
+    totalDevicees: number;
+    activeDevicees: number;
+    inactiveDevicees: number;
+  };
+  data: ApiDevice[];
+  dataCount: number;
+  currentPaginationIndex: number;
+  dataPerPage: number;
+  message: string;
+}
 
-const columns: Column<Device>[] = [
-  {
-    key: "name",
-    label: "Device",
-    priority: "always",
-    render: (value: string, item: Device) => (
-      <div>
-        <p className="font-medium">{value}</p>
-        <p className="text-xs text-muted-foreground">{item.type}</p>
+interface Device {
+  id: string;
+  name: string;
+  type: string; // "Fingerprint" , "QR" , "Face", "RFID"
+  deviceId?: string;
+  firmware?: string;
+  networkAddress?: string;
+  color?: string;
+  status?: string;
+  lastUpdated?: string;
+  branch?: string;
+  branchName: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+const mapApiDevice = (device: ApiDevice): Device => ({
+  id: device._id,
+  name: device.name,
+  status: device.status || "Inactive",
+  deviceId: device.deviceId,
+  lastUpdated: device.lastUpdated ? new Date(device.lastUpdated).toLocaleString() : "No data found",
+  createdAt: device.createdAt ? new Date(device.createdAt).toLocaleString() : "No data found",
+  color: device.color,
+  type: device.type,
+  branchName: device.branchName
+});
+
+const fetchDevice = async (page: number, search: string, status: string) => {
+  const params: Record<string, unknown> = {
+    currentPageIndex: page,
+    dataPerPage: ITEMS_PER_PAGE,
+  };
+  if (search) params.search = search;
+  if (status && status !== "all") params["filters[status]"] = status;
+
+  const res = await Request.get<ApiListResponse>("/devices/list", params);
+  return res;
+};
+
+interface DeviceFormProps {
+  formData: {
+    [x: string]: string;
+    type: string;
+    deviceId: string;
+    name: string;
+    color: string;
+    status: "Active" | "Inactive";
+  };
+  setFormData: React.Dispatch<React.SetStateAction<{
+    name: string;
+    color: string;
+    status: "Active" | "Inactive";
+  }>>;
+}
+
+const DeviceForm = ({ formData, setFormData }: DeviceFormProps) => (
+  <div className="space-y-4">
+    <div>
+      <Label htmlFor="deviceId">Device Id <span className="text-red-500">*</span></Label>
+      <Input
+        id="deviceId"
+        value={formData.deviceId}
+        onChange={(e) => setFormData(prev => ({ ...prev, deviceId: e.target.value }))}
+        placeholder="DeviceId of this device"
+        className="mt-1.5"
+      />
+    </div>
+    <div>
+      <Label htmlFor="name">Device Name <span className="text-red-500">*</span></Label>
+      <Input
+        id="name"
+        value={formData.name}
+        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+        placeholder="e.g., Premium Plans"
+        className="mt-1.5"
+      />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="membership">Device Type <span className="text-destructive">*</span></Label>
+      <Select value={formData.type} onValueChange={(v) => setFormData(prev => ({ ...prev, type: v }))}>
+        <SelectTrigger id="membership">
+          <SelectValue placeholder="Select plan" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="Fingerprint">Fingerprint</SelectItem>
+          <SelectItem value="QR">QR</SelectItem>
+          <SelectItem value="Face">Face</SelectItem>
+          <SelectItem value="RFID">RFID</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div className="space-y-2">
+      {/* TODO Integrate async select form branchers */}
+      <Label htmlFor="branch">Branch <span className="text-destructive">*</span></Label>
+      <Select value={formData.branch} onValueChange={(v) => setFormData(prev => ({ ...prev, branch: v }))}>
+        <SelectTrigger id="branch">
+          <SelectValue placeholder="Select branch" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="Downtown">Downtown</SelectItem>
+          <SelectItem value="Westside">Westside</SelectItem>
+          <SelectItem value="Eastside">Eastside</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div>
+      <Label className="flex items-center gap-2">
+        <Palette className="h-4 w-4" />
+        Color
+      </Label>
+      <div className="flex gap-2 mt-2 flex-wrap">
+        {colorOptions.map((color) => (
+          <button
+            key={color}
+            type="button"
+            className={`w-8 h-8 rounded-lg transition-all ${formData.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'hover:scale-105'}`}
+            style={{ backgroundColor: color }}
+            onClick={() => setFormData(prev => ({ ...prev, color }))}
+          />
+        ))}
       </div>
-    ),
-  },
-  { key: "deviceId", label: "ID", priority: "lg", render: (value: string) => <span className="font-mono text-xs">{value}</span> },
-  { key: "location", label: "Location", priority: "md" },
-  { key: "ipAddress", label: "IP Address", priority: "lg", render: (value: string) => <span className="font-mono text-xs text-muted-foreground">{value}</span> },
-  { key: "lastSync", label: "Last Sync", priority: "md" },
-  { key: "firmware", label: "Firmware", priority: "xl" },
-  { key: "branch", label: "Branch", priority: "xl" },
-  {
-    key: "status",
-    label: "Status",
-    priority: "always",
-    render: (value: "online" | "offline" | "maintenance") => {
-      const statusMap = { online: { status: "success" as const, label: "Online" }, offline: { status: "error" as const, label: "Offline" }, maintenance: { status: "warning" as const, label: "Maint." } };
-      return <StatusBadge {...statusMap[value]} />;
-    },
-  },
-];
+    </div>
+    <div>
+      <Label>Status <span className="text-red-500">*</span></Label>
+      <div className="flex gap-2 mt-2">
+        <Button
+          type="button"
+          variant={formData.status === "Active" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFormData(prev => ({ ...prev, status: "Active" }))}
+        >
+          Active
+        </Button>
+        <Button
+          type="button"
+          variant={formData.status === "Inactive" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFormData(prev => ({ ...prev, status: "Inactive" }))}
+        >
+          Inactive
+        </Button>
+      </div>
+    </div>
+  </div>
+);
 
-export default function Devices() {
-  const { paginatedData, searchQuery, handleSearch, filters, handleFilter, paginationProps } = useTableData({
-    data: sampleData,
-    itemsPerPage: 8,
-    searchFields: ["name", "deviceId", "location", "type"],
+export default function Devicees() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    deviceId: "",
+    type: "",
+    color: "#22c55e",
+    status: "Active" as "Active" | "Inactive",
   });
+
+  const columns: Column<Device>[] = [
+    {
+      key: "name",
+      label: "Device",
+      priority: "always",
+      render: (_, item) => {
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}20` }}>
+              <FingerprintIcon className="w-5 h-5" style={{ color: item.color }} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                Last Seen : {item.lastUpdated || "No data found "}
+              </p>
+            </div>
+          </div>
+        )
+      },
+    },
+    { key: "deviceId", label: "Device Id", priority: "md" },
+    { key: "type", label: "Type", priority: "md" },
+    { key: "firmware", label: "Firmware", priority: "md" },
+    { key: "networkAddress", label: "Network", priority: "md" },
+    { key: "branch", label: "Branch", priority: "md" },
+    {
+      key: "status",
+      label: "Status",
+      priority: "md",
+      render: (value) => (
+        <Badge variant={value === "Active" ? "default" : "secondary"}>
+          {value}
+        </Badge>
+      ),
+    },
+  ];
+
+  const rowActions: RowAction<Device>[] = [
+    {
+      label: "Edit",
+      icon: Pencil,
+      onClick: (device) => openEditForm(device),
+    },
+    {
+      label: "Delete",
+      icon: Trash2,
+      onClick: (device) => {
+        setSelectedDevice(device);
+        setIsDeleteOpen(true);
+      },
+      variant: "danger",
+    },
+  ];
+
+  const { data: apiResponse, isLoading, refetch } = useQuery({
+    queryKey: ["devices-list", currentPage, searchQuery, statusFilter],
+    queryFn: () => fetchDevice(currentPage, searchQuery, statusFilter),
+  });
+
+  const deviceers = apiResponse?.data?.map(mapApiDevice) ?? [];
+  const totalItems = apiResponse?.dataCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / (apiResponse?.dataPerPage || ITEMS_PER_PAGE)));
+  const analytics = apiResponse?.analytics ? {
+    totalDevicees: apiResponse?.analytics?.totalDevicees || 0,
+    activeDevicees: apiResponse?.analytics?.activeDevicees || 0,
+    inactiveDevicees: apiResponse?.analytics?.inactiveDevicees || 0,
+  } : { totalDevices: 0, activeDevices: 0, inactiveDevices: 0 };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
+
+  const handleAddDevice = async () => {
+    if (!formData.name.trim()) {
+      toast.error("Device name is required");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await Request.post("/devices/create", formData);
+      toast.success("Device added successfully");
+      setIsAddOpen(false);
+      resetForm();
+      refetch();
+    } catch {
+      toast.error("Failed to add device");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditDevice = async () => {
+    if (!selectedDevice || !formData.name.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await Request.put(`/devices/${selectedDevice.id}`, formData);
+      toast.success("Device updated successfully");
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    } catch {
+      toast.error("Failed to update device");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDevice = () => {
+    if (!selectedDevice) return;
+    const totalItems = 1;
+    if (totalItems > 0) {
+      toast.error("Delete device integration coming soon");
+      setIsDeleteOpen(false);
+      return;
+    }
+    toast.info("Delete device integration coming soon");
+    setIsDeleteOpen(false);
+    setSelectedDevice(null);
+  };
+
+  const resetForm = () => {
+    setFormData({ name: "", deviceId: "", color: "#22c55e", status: "Active", type: "" });
+    setSelectedDevice(null);
+  };
+
+  const openEditForm = (device: Device) => {
+    setSelectedDevice(device);
+    setFormData({
+      name: device.name,
+      color: device.color,
+      deviceId: device.deviceId,
+      status: device.status === "Active" ? "Active" : "Inactive",
+      type: device.type
+    });
+    setIsEditOpen(true);
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Devicees</h1>
+          <p className="text-muted-foreground">Manage and organize deviceers efficiently</p>
+        </div>
+        <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Device
+        </Button>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Total Devicees */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <Smartphone className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">24</p>
-              <p className="text-xs text-muted-foreground">Total Devices</p>
+              <p className="text-2xl font-bold text-card-foreground">
+                {analytics.totalDevicees}
+              </p>
+              <p className="text-xs text-muted-foreground">Total Devicees</p>
             </div>
           </div>
         </div>
+
+        {/* Online Devicees */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
-              <Wifi className="w-5 h-5 text-success" />
+            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <Wifi className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">21</p>
-              <p className="text-xs text-muted-foreground">Online</p>
+              <p className="text-2xl font-bold text-card-foreground">
+                {analytics.activeDevicees}
+              </p>
+              <p className="text-xs text-muted-foreground">Online Devicees</p>
             </div>
           </div>
         </div>
+
+        {/* Offline Devicees */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-              <WifiOff className="w-5 h-5 text-destructive" />
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+              <WifiOff className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">2</p>
-              <p className="text-xs text-muted-foreground">Offline</p>
+              <p className="text-2xl font-bold text-card-foreground">
+                {analytics.inactiveDevicees}
+              </p>
+              <p className="text-xs text-muted-foreground">Offline Devicees</p>
             </div>
           </div>
         </div>
+
+        {/* Active Devicees */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-warning" />
+            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">1</p>
-              <p className="text-xs text-muted-foreground">Maintenance</p>
+              <p className="text-2xl font-bold text-card-foreground">
+                {analytics.activeDevicees}
+              </p>
+              <p className="text-xs text-muted-foreground">Active Devicees</p>
             </div>
           </div>
         </div>
@@ -125,42 +447,74 @@ export default function Devices() {
           {
             key: "status",
             label: "Status",
-            value: filters.status || "all",
-            onChange: (v) => handleFilter("status", v),
+            type: "sync",
             options: [
-              { value: "online", label: "Online" },
-              { value: "offline", label: "Offline" },
-              { value: "maintenance", label: "Maintenance" },
+              { label: "All Status", value: "all" },
+              { label: "Active", value: "Active" },
+              { label: "Inactive", value: "Inactive" },
             ],
-          },
-          {
-            key: "type",
-            label: "Type",
-            value: filters.type || "all",
-            onChange: (v) => handleFilter("type", v),
-            options: [
-              { value: "Access Control", label: "Access Control" },
-              { value: "Biometric", label: "Biometric" },
-              { value: "RFID Reader", label: "RFID Reader" },
-              { value: "Gate Control", label: "Gate Control" },
-            ],
-          },
-          {
-            key: "branch",
-            label: "Branch",
-            value: filters.branch || "all",
-            onChange: (v) => handleFilter("branch", v),
-            options: [
-              { value: "Downtown", label: "Downtown" },
-              { value: "Westside", label: "Westside" },
-              { value: "Eastside", label: "Eastside" },
-            ],
+            value: statusFilter,
+            onChange: (val) => {
+              setStatusFilter(val);
+              setCurrentPage(1);
+            },
           },
         ]}
       />
 
       {/* Table */}
-      <ResponsiveTable data={paginatedData} columns={columns} keyExtractor={(item) => item.id} pagination={paginationProps} />
+      <ResponsiveTable<Device>
+        columns={columns}
+        data={deviceers}
+        keyExtractor={(device) => device.id}
+        rowActions={rowActions}
+        isLoading={isLoading}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalItems,
+          itemsPerPage: ITEMS_PER_PAGE,
+          onPageChange: setCurrentPage,
+        }}
+      />
+
+      <QuickAddSheet
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        title="Add Device"
+        onSubmit={handleAddDevice}
+        submitLabel={isSubmitting ? "Adding..." : "Add Device"}
+      >
+        <DeviceForm formData={formData} setFormData={setFormData} />
+      </QuickAddSheet>
+
+      <QuickAddSheet
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        title="Edit Device"
+        onSubmit={handleEditDevice}
+        submitLabel={isSubmitting ? "Saving..." : "Save Changes"}
+      >
+        <DeviceForm formData={formData} setFormData={setFormData} />
+      </QuickAddSheet>
+
+      {/* Delete Device */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Device</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{selectedDevice?.name}"?
+              {(" This action cannot be undone.")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteDevice}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
