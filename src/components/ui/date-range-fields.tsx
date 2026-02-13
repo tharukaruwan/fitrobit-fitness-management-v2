@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format } from "date-fns";
+import { format, isAfter, isBefore, startOfDay } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -14,11 +14,11 @@ const months = [
 ];
 
 const currentYear = new Date().getFullYear();
-const defaultYears = Array.from({ length: 10 }, (_, i) => currentYear - i);
+const defaultYears = Array.from({ length: 20 }, (_, i) => currentYear - i);
 
 interface DateRangeFieldsProps {
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | null;
+  endDate: Date | null;
   onStartDateChange: (date: Date) => void;
   onEndDateChange: (date: Date) => void;
   className?: string;
@@ -35,6 +35,24 @@ export function DateRangeFields({
   disableFuture = true,
   years = defaultYears,
 }: DateRangeFieldsProps) {
+  
+  // Helper to handle date part changes safely even if null
+  const handleDatePartChange = (
+    currentDate: Date | null, 
+    part: 'month' | 'year', 
+    value: string, 
+    callback: (d: Date) => void
+  ) => {
+    const baseDate = currentDate ? new Date(currentDate) : new Date();
+    if (part === 'month') baseDate.setMonth(parseInt(value));
+    if (part === 'year') baseDate.setFullYear(parseInt(value));
+    callback(baseDate);
+  };
+
+  // Determine what month the calendar should display (the "view")
+  const startView = startDate || new Date();
+  const endView = endDate || new Date();
+
   return (
     <div className={cn("flex flex-wrap items-end gap-3", className)}>
       {/* Start Date */}
@@ -53,37 +71,30 @@ export function DateRangeFields({
               {startDate ? format(startDate, "MMM d, yyyy") : <span>Pick a date</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <div className="flex items-center gap-2 p-3 border-b">
+          <PopoverContent className="w-auto p-0 z-50" align="start">
+            <div className="flex items-center gap-2 p-3 border-b bg-background">
               <Select
-                value={startDate.getMonth().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(startDate);
-                  newDate.setMonth(parseInt(value));
-                  onStartDateChange(newDate);
-                }}
+                value={startView.getMonth().toString()}
+                onValueChange={(val) => handleDatePartChange(startDate, 'month', val, onStartDateChange)}
               >
-                <SelectTrigger className="w-[120px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[120px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[60]">
                   {months.map((month, index) => (
                     <SelectItem key={month} value={index.toString()}>{month}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              
               <Select
-                value={startDate.getFullYear().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(startDate);
-                  newDate.setFullYear(parseInt(value));
-                  onStartDateChange(newDate);
-                }}
+                value={startView.getFullYear().toString()}
+                onValueChange={(val) => handleDatePartChange(startDate, 'year', val, onStartDateChange)}
               >
-                <SelectTrigger className="w-[90px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[90px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
+                <SelectContent position="popper" className="z-[60]">
                   {years.map((year) => (
                     <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                   ))}
@@ -92,12 +103,15 @@ export function DateRangeFields({
             </div>
             <Calendar
               mode="single"
-              selected={startDate}
+              selected={startDate || undefined}
               onSelect={(date) => date && onStartDateChange(date)}
-              month={startDate}
-              disabled={disableFuture ? (date) => date > new Date() : undefined}
+              month={startView}
+              onMonthChange={onStartDateChange}
+              disabled={(date) => 
+                (disableFuture && date > new Date()) || 
+                (!!endDate && isAfter(startOfDay(date), startOfDay(endDate)))
+              }
               initialFocus
-              className={cn("p-3 pointer-events-auto")}
             />
           </PopoverContent>
         </Popover>
@@ -119,37 +133,30 @@ export function DateRangeFields({
               {endDate ? format(endDate, "MMM d, yyyy") : <span>Pick a date</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <div className="flex items-center gap-2 p-3 border-b">
+          <PopoverContent className="w-auto p-0 z-50" align="start">
+            <div className="flex items-center gap-2 p-3 border-b bg-background">
               <Select
-                value={endDate.getMonth().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(endDate);
-                  newDate.setMonth(parseInt(value));
-                  onEndDateChange(newDate);
-                }}
+                value={endView.getMonth().toString()}
+                onValueChange={(val) => handleDatePartChange(endDate, 'month', val, onEndDateChange)}
               >
-                <SelectTrigger className="w-[120px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[120px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[60]">
                   {months.map((month, index) => (
                     <SelectItem key={month} value={index.toString()}>{month}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              
               <Select
-                value={endDate.getFullYear().toString()}
-                onValueChange={(value) => {
-                  const newDate = new Date(endDate);
-                  newDate.setFullYear(parseInt(value));
-                  onEndDateChange(newDate);
-                }}
+                value={endView.getFullYear().toString()}
+                onValueChange={(val) => handleDatePartChange(endDate, 'year', val, onEndDateChange)}
               >
-                <SelectTrigger className="w-[90px] h-8 text-sm rounded-[0.625rem]">
+                <SelectTrigger className="w-[90px] h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
+                <SelectContent position="popper" className="z-[60]">
                   {years.map((year) => (
                     <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                   ))}
@@ -158,12 +165,15 @@ export function DateRangeFields({
             </div>
             <Calendar
               mode="single"
-              selected={endDate}
+              selected={endDate || undefined}
               onSelect={(date) => date && onEndDateChange(date)}
-              month={endDate}
-              disabled={disableFuture ? (date) => date > new Date() : undefined}
+              month={endView}
+              onMonthChange={onEndDateChange}
+              disabled={(date) => 
+                (disableFuture && date > new Date()) || 
+                (!!startDate && isBefore(startOfDay(date), startOfDay(startDate)))
+              }
               initialFocus
-              className={cn("p-3 pointer-events-auto")}
             />
           </PopoverContent>
         </Popover>

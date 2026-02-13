@@ -3,20 +3,40 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { useTableData } from "@/hooks/use-table-data";
 import { ImagePreview } from "@/components/ui/image-preview";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DateRangeFields } from "@/components/ui/date-range-fields";
-import { Users, UserPlus, UserCheck, UserX, Cake, Plus, Pencil, Eye, CreditCard, Printer, MessageCircle, Mail } from "lucide-react";
+import { Users, UserPlus, UserCheck, UserX, Cake, Plus, Pencil, Eye, Trash2, MessageCircle, Mail, User, UserRound, Contact, Shield   } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
-import { useToast } from "@/hooks/use-toast";
 import { subDays } from "date-fns";
+import { toast } from "sonner";
 import Request from "@/lib/api/client";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { cleanObject } from "@/utils/helpers";
+
+interface Branch {
+  _id: string;
+  name: string;
+  status: "Active" | "Inactive";
+}
+
+interface BranchListResponse {
+  data: Branch[];
+  message: string;
+}
 
 interface ApiMember {
   _id: string;
@@ -30,11 +50,19 @@ interface ApiMember {
   pt: string[];
   createdAt: string;
   renewalDay: string;
-  status: "Active" | "Inactive" | "_";
-  branchName: string;
-  birthday?: string; // Format: "MM-DD"
+  gender?: "male" | "female" | "other";
+  status: "Active" | "Inactive" | "Lead" | "Paused";
+  branch: Branch;
+  dateOfBirth?: string; // Format: "MM-DD"
 }
 interface ApiListResponse {
+  analytics: {
+    totalMembers: number;
+    activeMembers: number;
+    inactiveMembers: number;
+    leadMembers: number;
+    pausedMembers: number;
+  };
   data: ApiMember[];
   dataCount: number;
   currentPaginationIndex: number;
@@ -43,8 +71,12 @@ interface ApiListResponse {
 }
 
 interface Member {
-  id: string | number;
+  id: string;
   memberId: string;
+  gender?: "male" | "female" | "other";
+  phoneNumber?: string;
+  nic?: string;
+  remark?: string;
   name: string;
   image: string;
   email: string;
@@ -54,36 +86,28 @@ interface Member {
   pt: string[];
   joinDate: string;
   expiryDate: string;
-  status: "Active" | "Inactive" | "_";
-  branch: string;
-  birthday?: string; // Format: "MM-DD"
+  status: "Active" | "Inactive" | "Lead" | "Paused";
+  branch?: string;
+  branchName?: string;
+  dateOfBirth?: string; // Format: "MM-DD"
 }
 
-const allClasses = [
-  "Yoga", "HIIT", "Spin", "Pilates", "CrossFit", "Boxing", "Zumba", "Strength Training", "Swimming", "Kickboxing",
-];
-
-const allPTPackages = [
-  "Weight Loss", "Muscle Building", "Cardio Fitness", "Flexibility", "Sports Performance", "Rehabilitation", "Body Toning", "Endurance",
-];
-
-
-// Helper to check if today is birthday
-const isBirthdayToday = (birthday?: string) => {
-  if (!birthday) return false;
+// Helper to check if today is dateOfBirth
+const isBirthdayToday = (dateOfBirth?: string) => {
+  if (!dateOfBirth) return false;
   const today = new Date();
-  const [month, day] = birthday.split("-").map(Number);
+  const [month, day] = dateOfBirth.split("-").map(Number);
   return today.getMonth() + 1 === month && today.getDate() === day;
 };
 
-// Helper to check if birthday is within next 7 days
-const isBirthdaySoon = (birthday?: string) => {
-  if (!birthday) return false;
+// Helper to check if dateOfBirth is within next 7 days
+const isBirthdaySoon = (dateOfBirth?: string) => {
+  if (!dateOfBirth) return false;
   const today = new Date();
-  const [month, day] = birthday.split("-").map(Number);
+  const [month, day] = dateOfBirth.split("-").map(Number);
   const birthdayThisYear = new Date(today.getFullYear(), month - 1, day);
 
-  // If birthday passed this year, check next year
+  // If dateOfBirth passed this year, check next year
   if (birthdayThisYear < today) {
     birthdayThisYear.setFullYear(today.getFullYear() + 1);
   }
@@ -92,30 +116,19 @@ const isBirthdaySoon = (birthday?: string) => {
   return diffDays > 0 && diffDays <= 7;
 };
 
-const sampleData: Member[] = [
-  { id: 1, memberId: "MEM-001", name: "John Smith", image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=150", email: "john.smith@email.com", phone: "+1 234 567 890", membership: "Premium", classes: ["Yoga", "HIIT", "Spin"], pt: ["Weight Loss", "Cardio Fitness"], joinDate: "Jan 15, 2024", expiryDate: "Jan 15, 2025", status: "Active", branch: "Downtown", birthday: "12-31" },
-  { id: 2, memberId: "MEM-002", name: "Sarah Johnson", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", email: "sarah.j@email.com", phone: "+1 234 567 891", membership: "VIP", classes: ["Pilates", "Zumba"], pt: ["Body Toning"], joinDate: "Mar 20, 2024", expiryDate: "Mar 20, 2025", status: "Active", branch: "Downtown", birthday: "01-05" },
-  { id: 3, memberId: "MEM-003", name: "Mike Davis", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150", email: "mike.d@email.com", phone: "+1 234 567 892", membership: "Standard", classes: ["CrossFit", "Boxing"], pt: ["Muscle Building", "Sports Performance"], joinDate: "Feb 10, 2024", expiryDate: "Feb 10, 2025", status: "Active", branch: "Westside" },
-  { id: 4, memberId: "MEM-004", name: "Emily Chen", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150", email: "emily.c@email.com", phone: "+1 234 567 893", membership: "Premium", classes: ["Yoga", "Pilates", "Swimming"], pt: ["Flexibility"], joinDate: "Dec 5, 2023", expiryDate: "Dec 5, 2024", status: "Inactive", branch: "Downtown" },
-  { id: 5, memberId: "MEM-005", name: "David Wilson", image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150", email: "david.w@email.com", phone: "+1 234 567 894", membership: "Standard", classes: ["HIIT"], pt: [], joinDate: "Nov 28, 2024", expiryDate: "Nov 28, 2025", status: "Inactive", branch: "Eastside", birthday: "01-02" },
-  { id: 6, memberId: "MEM-006", name: "Lisa Brown", image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150", email: "lisa.b@email.com", phone: "+1 234 567 895", membership: "VIP", classes: ["Spin", "Zumba", "Kickboxing", "Strength Training"], pt: ["Weight Loss", "Endurance"], joinDate: "Aug 12, 2024", expiryDate: "Aug 12, 2025", status: "Active", branch: "Downtown" },
-  { id: 7, memberId: "MEM-007", name: "James Taylor", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150", email: "james.t@email.com", phone: "+1 234 567 896", membership: "Premium", classes: ["CrossFit", "Boxing", "HIIT"], pt: ["Muscle Building"], joinDate: "Oct 3, 2024", expiryDate: "Oct 3, 2025", status: "Active", branch: "Westside" },
-  { id: 8, memberId: "MEM-008", name: "Anna Martinez", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150", email: "anna.m@email.com", phone: "+1 234 567 897", membership: "Standard", classes: ["Yoga", "Swimming"], pt: ["Rehabilitation"], joinDate: "Sep 15, 2024", expiryDate: "Sep 15, 2025", status: "Active", branch: "Eastside" },
-  { id: 9, memberId: "MEM-009", name: "Robert Lee", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150", email: "robert.l@email.com", phone: "+1 234 567 898", membership: "VIP", classes: ["Pilates", "Strength Training"], pt: ["Cardio Fitness", "Body Toning"], joinDate: "Jul 22, 2024", expiryDate: "Jul 22, 2025", status: "Active", branch: "Downtown" },
-  { id: 10, memberId: "MEM-010", name: "Jessica White", image: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150", email: "jessica.w@email.com", phone: "+1 234 567 899", membership: "Premium", classes: ["Zumba", "Spin"], pt: ["Flexibility", "Endurance"], joinDate: "Jun 8, 2024", expiryDate: "Jun 8, 2025", status: "Active", branch: "Westside" },
-  { id: 11, memberId: "MEM-011", name: "Chris Anderson", image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150", email: "chris.a@email.com", phone: "+1 234 567 900", membership: "Standard", classes: ["Boxing"], pt: [], joinDate: "May 1, 2024", expiryDate: "May 1, 2025", status: "Inactive", branch: "Downtown" },
-  { id: 12, memberId: "MEM-012", name: "Michelle Garcia", image: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150", email: "michelle.g@email.com", phone: "+1 234 567 901", membership: "Premium", classes: ["Yoga", "HIIT", "Kickboxing"], pt: ["Sports Performance"], joinDate: "Apr 20, 2024", expiryDate: "Apr 20, 2025", status: "Active", branch: "Eastside" },
-];
-
 const ITEMS_PER_PAGE = 8;
 
-const fetchMembers = async (page: number, search: string, status: string) => {
+const fetchMembers = async (page: number, search: string, status: string, branch: string, gender: string, startDate?: Date, endDate?: Date) => {
   const params: Record<string, unknown> = {
     currentPageIndex: page,
     dataPerPage: ITEMS_PER_PAGE,
   };
   if (search) params.search = search;
   if (status && status !== "all") params["filters[status]"] = status;
+  if (branch && branch !== "all") params["filters[branch]"] = branch;
+  if (gender && gender !== "all") params["filters[gender]"] = gender;
+  if (startDate) params["startDay"] = startDate;
+  if (endDate) params["endDay"] = endDate;
 
   const res = await Request.get<ApiListResponse>("/members/list", params);
   return res;
@@ -131,9 +144,22 @@ const columns: Column<Member>[] = [
       <div className="flex items-center gap-2">
         <div>
           <p className="font-medium">{value}</p>
-          <p className="text-xs text-muted-foreground">{item.memberId}</p>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            {item.gender === "male" && (
+              <User className="w-2.5 h-2.5 text-blue-500" />
+            )}
+
+            {item.gender === "female" && (
+              <UserRound className="w-2.5 h-2.5 text-pink-500" />
+            )}
+
+            {item.gender === "other" && (
+              <Contact className="w-2.5 h-2.5 text-gray-500" />
+            )}
+            <span>{item.memberId}</span>
+          </div>
         </div>
-        {isBirthdayToday(item.birthday) && (
+        {isBirthdayToday(item.dateOfBirth) && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
@@ -147,7 +173,7 @@ const columns: Column<Member>[] = [
             </Tooltip>
           </TooltipProvider>
         )}
-        {!isBirthdayToday(item.birthday) && isBirthdaySoon(item.birthday) && (
+        {!isBirthdayToday(item.dateOfBirth) && isBirthdaySoon(item.dateOfBirth) && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
@@ -164,17 +190,21 @@ const columns: Column<Member>[] = [
       </div>
     ),
   },
-  { key: "email", label: "Email", priority: "lg" },
   { key: "phone", label: "Phone", priority: "xl" },
   {
     key: "membership",
     label: "Plan",
     priority: "md",
-    render: (value: string) => (
-      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${value === "VIP" ? "bg-warning/10 text-warning" : value === "Premium" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-        {value}
-      </span>
-    ),
+    render: (value: string | undefined) => {
+      return (value && value !== "_") ? (
+        <Badge variant="outline" className="gap-1">
+          <Shield className="w-3 h-3" />
+          {value}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground text-xs">_</span>
+      );
+    },
   },
   {
     key: "classes",
@@ -228,13 +258,13 @@ const columns: Column<Member>[] = [
   },
   { key: "joinDate", label: "Joined", priority: "lg" },
   { key: "expiryDate", label: "Expires", priority: "xl" },
-  { key: "branch", label: "Branch", priority: "xl" },
+  { key: "branchName", label: "Branch", priority: "xl" },
   {
     key: "status",
     label: "Status",
     priority: "always",
-    render: (value: "active" | "Inactive" | "pending") => (
-      <StatusBadge status={value === "active" ? "success" : value === "Inactive" ? "error" : "warning"} label={value.charAt(0).toUpperCase() + value.slice(1)} />
+    render: (value: "Active" | "Inactive" | "Lead") => (
+      <StatusBadge status={value === "Active" ? "success" : value === "Inactive" ? "error" : "warning"} label={value.charAt(0).toUpperCase() + value.slice(1)} />
     ),
   },
 ];
@@ -243,55 +273,251 @@ const mapApiMember = (mb: ApiMember): Member => ({
   id: mb._id,
   memberId: mb.memberId,
   name: mb.name,
-  image: mb.image,
+  gender: mb.gender,
+  image: mb.image ? mb.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
   email: mb.email ? mb.email : "_",
   phone: mb.phoneNumber ? mb.phoneNumber : "_",
   membership: mb.memberShipName ? (mb.memberShipName.length > 5 ? mb.memberShipName.substring(0, 5) + ".." : mb.memberShipName) : "_",
   classes: mb.classes ? mb.classes : [],
-  pt: ["Weight Loss", "Cardio Fitness"],
+  pt: [],
   joinDate: mb.createdAt ? new Date(mb.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
   expiryDate: mb.renewalDay ? new Date(mb.renewalDay).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "_",
-  status: mb.status || "_",
-  branch: mb.branchName || "_",
-  birthday: mb.birthday || "_"
+  status: mb.status || "Inactive",
+  dateOfBirth: mb.dateOfBirth || "",
+  branch: mb.branch ? mb.branch._id : "_",
+  branchName: mb.branch ? mb.branch.name : "_",
 });
 
+const fetchBranches = async () => {
+  const params = {
+    "filters[status]": "Active",
+    dataPerPage: 100, // Get all active branches
+  };
+  const res = await Request.get<BranchListResponse>("/branchers/list", params);
+  return res.data || [];
+};
+
+interface DeviceFormProps {
+  formData: {
+    memberId: string;
+    name: string;
+    phoneNumber: string;
+    email: string;
+    branch: string;
+    status: "Active" | "Inactive" | "Lead" | "Paused";
+    gender?: "male" | "female" | "other";
+    nic?: string;
+    remark?: string;
+    dateOfBirth?: string;
+  };
+  setFormData: React.Dispatch<React.SetStateAction<{
+    memberId: string;
+    name: string;
+    phoneNumber: string;
+    email: string;
+    branch: string;
+    status: "Active" | "Inactive" | "Lead" | "Paused";
+    gender?: "male" | "female" | "other";
+    nic?: string;
+    remark?: string;
+    dateOfBirth?: string;
+  }>>;
+}
+
+const MemberForm = ({ formData, setFormData }: DeviceFormProps) => {
+  // Fetch branches for dropdown
+  const { data: branches = [], isLoading: branchesLoading } = useQuery({
+    queryKey: ["branches-dropdown"],
+    queryFn: fetchBranches,
+  });
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="memberId">Member Id <span className="text-red-500">*</span></Label>
+        <Input
+          id="memberId"
+          value={formData.memberId}
+          onChange={(e) => setFormData(prev => ({ ...prev, memberId: e.target.value }))}
+          placeholder="e.g., 12345"
+          className="mt-1.5"
+        />
+      </div>
+      <div>
+        <Label htmlFor="name">Member Name <span className="text-red-500">*</span></Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          placeholder="e.g., John Doe"
+          className="mt-1.5"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="gender">Gender <span className="text-destructive">*</span></Label>
+        <Select value={formData.gender} onValueChange={(v) => setFormData(prev => ({ ...prev, gender: v as "male" | "female" | "other" }))}>
+          <SelectTrigger id="gender">
+            <SelectValue placeholder="Select gender" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="male">Male</SelectItem>
+            <SelectItem value="female">Female</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="status">Status <span className="text-destructive">*</span></Label>
+        <Select value={formData.status} onValueChange={(v) => setFormData(prev => ({ ...prev, status: v as "Active" | "Inactive" | "Lead" | "Paused" }))}>
+          <SelectTrigger id="status">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Inactive">Inactive</SelectItem>
+            <SelectItem value="Lead">Lead</SelectItem>
+            <SelectItem value="Paused">Paused</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="dateOfBirth">Birthday</Label>
+        <Input
+          id="dateOfBirth"
+          type="date"
+          value={formData.dateOfBirth}
+          onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+        />
+      </div>
+      <div>
+        <Label htmlFor="phoneNumber">Phone No </Label>
+        <Input
+          id="phoneNumber"
+          value={formData.phoneNumber}
+          onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+          placeholder="e.g., 0771234567"
+          className="mt-1.5"
+        />
+      </div>
+      <div>
+        <Label htmlFor="email">Email </Label>
+        <Input
+          id="email"
+          value={formData.email}
+          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+          placeholder="e.g., john.doe@example.com"
+          className="mt-1.5"
+        />
+      </div>
+      <div>
+        <Label htmlFor="nic">NIC </Label>
+        <Input
+          id="nic"
+          value={formData.nic}
+          onChange={(e) => setFormData(prev => ({ ...prev, nic: e.target.value }))}
+          placeholder="e.g., 123456789V"
+          className="mt-1.5"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="branch">Branch </Label>
+        <Select
+          value={formData.branch}
+          onValueChange={(v) => setFormData(prev => ({ ...prev, branch: v }))}
+          disabled={branchesLoading}
+        >
+          <SelectTrigger id="branch">
+            <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select branch"} />
+          </SelectTrigger>
+          <SelectContent>
+            {branches.length === 0 && !branchesLoading ? (
+              <SelectItem value="no-branches" disabled>
+                No active branches available
+              </SelectItem>
+            ) : (
+              branches.map((branch) => (
+                <SelectItem key={branch._id} value={branch._id}>
+                  {branch.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {branches.length === 0 && !branchesLoading && (
+          <p className="text-xs text-muted-foreground">
+            Please create an active branch first
+          </p>
+        )}
+      </div>
+      <div>
+        <Label htmlFor="remark">Remark </Label>
+        <Input
+          id="remark"
+          value={formData.remark}
+          onChange={(e) => setFormData(prev => ({ ...prev, remark: e.target.value }))}
+          placeholder="e.g., Member is a regular customer"
+          className="mt-1.5"
+        />
+      </div>
+    </div>
+  );
+};
+
 export default function Members() {
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [genderFilter, setGenderFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30));
-  const [endDate, setEndDate] = useState<Date>(new Date());
-  const [formData, setFormData] = useState({
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [formData, setFormData] = useState<DeviceFormProps["formData"]>({
+    memberId: "",
+    nic: "",
     name: "",
+    phoneNumber: "",
     email: "",
-    phone: "",
-    membership: "",
+    gender: "other",
+    status: "Active",
     branch: "",
-    birthday: "",
   });
 
-  // Row action handlers
-  const handleEdit = (member: Member) => {
-    toast({ title: "Edit Member", description: `Editing ${member.name}` });
+  // Async branch search for filter
+  const searchBranchesForFilter = async (query: string) => {
+    try {
+      const params: Record<string, unknown> = {
+        dataPerPage: 20,
+      };
+      if (query.trim()) {
+        params.search = query;
+      }
+
+      const res = await Request.get<BranchListResponse>("/branchers/list", params);
+      const branches = res.data || [];
+
+      return [
+        { value: "all", label: "All Branches" },
+        ...branches.map((branch) => ({
+          value: branch._id,
+          label: branch.name,
+        })),
+      ];
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+      return [{ value: "all", label: "All Branches" }];
+    }
   };
 
   const handleView = (member: Member) => {
     navigate(`/members/${member.id}`);
-  };
-
-  const handlePayment = (member: Member) => {
-    toast({ title: "Payment", description: `Processing payment for ${member.name}` });
-  };
-
-  const handlePrint = (member: Member) => {
-    toast({ title: "Print", description: `Printing details for ${member.name}` });
   };
 
   const handleWhatsApp = (member: Member) => {
@@ -303,23 +529,12 @@ export default function Members() {
   };
 
   const rowActions: RowAction<Member>[] = [
-    { icon: Pencil, label: "Edit", onClick: handleEdit, variant: "default" },
+    { icon: Pencil, label: "Edit", onClick: (mb) => openEditForm(mb), variant: "default" },
     { icon: Eye, label: "View", onClick: handleView, variant: "primary" },
-    { icon: CreditCard, label: "Payment", onClick: handlePayment, variant: "default" },
-    { icon: Printer, label: "Print", onClick: handlePrint, variant: "default" },
     { icon: MessageCircle, label: "WhatsApp", onClick: handleWhatsApp, variant: "default" },
     { icon: Mail, label: "Email", onClick: handleEmail, variant: "default" },
+    { label: "Delete", icon: Trash2, onClick: (member) => { setSelectedMember(member); setIsDeleteOpen(true); }, variant: "danger" },
   ];
-
-  const { paginatedData, searchQuery: sampleSearchQuery, handleSearch: sampleHandleSearch, filters, handleFilter, paginationProps } = useTableData({
-    data: sampleData,
-    itemsPerPage: 8,
-    searchFields: ["name", "memberId", "email"],
-  });
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -327,61 +542,167 @@ export default function Members() {
   };
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
-    queryKey: ["members-list", currentPage, searchQuery, statusFilter],
-    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter),
+    queryKey: ["members-list", currentPage, searchQuery, statusFilter, branchFilter, genderFilter, startDate, endDate],
+    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter, branchFilter, genderFilter, startDate, endDate),
   });
 
   const members = apiResponse?.data?.map(mapApiMember) ?? [];
   const totalItems = apiResponse?.dataCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / (apiResponse?.dataPerPage || ITEMS_PER_PAGE)));
+  const analytics = apiResponse?.analytics ? {
+    totalMembers: apiResponse?.analytics?.totalMembers || 0,
+    activeMembers: apiResponse?.analytics?.activeMembers || 0,
+    inactiveMembers: apiResponse?.analytics?.inactiveMembers || 0,
+    leadMembers: apiResponse?.analytics?.leadMembers || 0,
+    pausedMembers: apiResponse?.analytics?.pausedMembers || 0,
+  } : { totalMembers: 0, activeMembers: 0, inactiveMembers: 0, leadMembers: 0, pausedMembers: 0 };
 
-  const handleSubmit = () => {
-    // Validate required fields
-    if (!formData.name || !formData.email || !formData.phone || !formData.membership || !formData.branch) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
+  const handleAddMember = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      toast.error("Member name is required");
+      return;
+    }
+    if (!formData.memberId.trim()) {
+      toast.error("Member ID is required");
+      return;
+    }
+    if (!formData.gender) {
+      toast.error("Member gender is required");
       return;
     }
 
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Member Added",
-        description: `${formData.name} has been added successfully.`,
-      });
-      setIsSubmitting(false);
+    try {
+      await Request.post("/members/create", formData);
+      toast.success("Member added successfully");
       setIsAddOpen(false);
-      setFormData({ name: "", email: "", phone: "", membership: "", branch: "", birthday: "" });
-    }, 1000);
+      resetForm();
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to add member");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditMember = async () => {
+    if (!selectedMember) return;
+
+    // Validation
+    if (!formData.name.trim()) {
+      toast.error("Member name is required");
+      return;
+    }
+    if (!formData.memberId.trim()) {
+      toast.error("Member ID is required");
+      return;
+    }
+    if (!formData.gender) {
+      toast.error("Member gender is required");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await Request.put(`/members/${selectedMember.id}`, cleanObject(formData));
+      toast.success("Member updated successfully");
+      setIsEditOpen(false);
+      resetForm();
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to update member");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteMember = async () => {
+    if (!selectedMember) return;
+
+    setIsSubmitting(true);
+    try {
+      await Request.delete(`/members/${selectedMember.id}`);
+      toast.success("Member deleted successfully");
+      setIsDeleteOpen(false);
+      setSelectedMember(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to delete member");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      memberId: "",
+      gender: "other",
+      branch: "",
+      phoneNumber: "",
+      email: "",
+      nic: "",
+      remark: "",
+      dateOfBirth: "",
+      status: "Active",
+    });
+    setSelectedMember(null);
+  };
+
+  const openEditForm = (mb: Member) => {
+    setSelectedMember(mb);
+    setFormData({
+      name: mb.name,
+      memberId: mb.memberId,
+      gender: mb.gender || "other",
+      branch: mb.branch || "",
+      phoneNumber: mb.phoneNumber || "",
+      email: mb.email || "",
+      nic: mb.nic || "",
+      remark: mb.remark || "",
+      dateOfBirth: mb.dateOfBirth || "",
+      status: mb.status,
+    });
+    setIsEditOpen(true);
   };
 
   return (
     <div className="space-y-4 animate-fade-in">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Members</h1>
+          <p className="text-muted-foreground">Manage members and their details</p>
+        </div>
+        <Button onClick={() => setIsAddOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Member
+        </Button>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-card-foreground">1,248</p>
-              <p className="text-xs text-muted-foreground">Total Members</p>
-            </div>
-          </div>
-        </div>
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
               <UserCheck className="w-5 h-5 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">1,156</p>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.activeMembers}</p>
               <p className="text-xs text-muted-foreground">Active</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Users className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.leadMembers}</p>
+              <p className="text-xs text-muted-foreground">New Leads</p>
             </div>
           </div>
         </div>
@@ -391,8 +712,8 @@ export default function Members() {
               <UserPlus className="w-5 h-5 text-warning" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">23</p>
-              <p className="text-xs text-muted-foreground">New This Month</p>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.pausedMembers}</p>
+              <p className="text-xs text-muted-foreground">Paused</p>
             </div>
           </div>
         </div>
@@ -402,8 +723,8 @@ export default function Members() {
               <UserX className="w-5 h-5 text-destructive" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">69</p>
-              <p className="text-xs text-muted-foreground">Expired</p>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.inactiveMembers}</p>
+              <p className="text-xs text-muted-foreground">Inactive</p>
             </div>
           </div>
         </div>
@@ -428,75 +749,50 @@ export default function Members() {
               {
                 key: "status",
                 label: "Status",
-                value: filters.status || "all",
-                onChange: (v) => handleFilter("status", v),
+                type: "sync",
                 options: [
-                  { value: "active", label: "Active" },
-                  { value: "expired", label: "Expired" },
-                  { value: "pending", label: "Pending" },
+                  { label: "All Status", value: "all" },
+                  { label: "Active", value: "Active" },
+                  { label: "Inactive", value: "Inactive" },
+                  { label: "Lead", value: "Lead" },
+                  { label: "Paused", value: "Paused" },
                 ],
-              },
-              {
-                key: "membership",
-                label: "Plan",
-                value: filters.membership || "all",
-                onChange: (v) => handleFilter("membership", v),
-                options: [
-                  { value: "VIP", label: "VIP" },
-                  { value: "Premium", label: "Premium" },
-                  { value: "Standard", label: "Standard" },
-                ],
-              },
-              {
-                key: "classes",
-                label: "Class",
-                value: filters.classes || "all",
-                onChange: (v) => handleFilter("classes", v),
-                type: "async" as const,
-                onSearch: async (query: string) => {
-                  await new Promise((r) => setTimeout(r, 300));
-                  return [
-                    { value: "all", label: "All Classes" },
-                    ...allClasses
-                      .filter((c) => c.toLowerCase().includes(query.toLowerCase()))
-                      .map((c) => ({ value: c, label: c })),
-                  ];
+                value: statusFilter,
+                onChange: (val) => {
+                  setStatusFilter(val);
+                  setCurrentPage(1);
                 },
               },
               {
-                key: "pt",
-                label: "PT Package",
-                value: filters.pt || "all",
-                onChange: (v) => handleFilter("pt", v),
-                type: "async" as const,
-                onSearch: async (query: string) => {
-                  await new Promise((r) => setTimeout(r, 300));
-                  return [
-                    { value: "all", label: "All PT Packages" },
-                    ...allPTPackages
-                      .filter((p) => p.toLowerCase().includes(query.toLowerCase()))
-                      .map((p) => ({ value: p, label: p })),
-                  ];
+                key: "gender",
+                label: "Gender",
+                type: "sync",
+                options: [
+                  { label: "All Genders", value: "all" },
+                  { label: "Male", value: "male" },
+                  { label: "Female", value: "female" },
+                  { label: "Other", value: "other" },
+                ],
+                value: genderFilter,
+                onChange: (val) => {
+                  setGenderFilter(val);
+                  setCurrentPage(1);
                 },
               },
               {
                 key: "branch",
                 label: "Branch",
-                value: filters.branch || "all",
-                onChange: (v) => handleFilter("branch", v),
-                options: [
-                  { value: "Downtown", label: "Downtown" },
-                  { value: "Westside", label: "Westside" },
-                  { value: "Eastside", label: "Eastside" },
-                ],
+                type: "async" as const,
+                value: branchFilter || "all",
+                onChange: (val) => {
+                  setBranchFilter(val);
+                  setCurrentPage(1);
+                },
+                onSearch: searchBranchesForFilter,
               },
             ]}
           />
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="shrink-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Member
-        </Button>
       </div>
 
       {/* Table */}
@@ -506,6 +802,7 @@ export default function Members() {
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
         rowActions={rowActions}
+        onRowClick={(item) => navigate(`/members/${item.id}`)}
         pagination={{
           currentPage,
           totalPages,
@@ -521,82 +818,54 @@ export default function Members() {
         onOpenChange={setIsAddOpen}
         title="Add New Member"
         description="Fill in the details to register a new member."
-        onSubmit={handleSubmit}
+        onSubmit={handleAddMember}
         submitLabel="Add Member"
         isSubmitting={isSubmitting}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
-            <Input
-              id="name"
-              placeholder="Enter full name"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter email address"
-              value={formData.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone <span className="text-destructive">*</span></Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="Enter phone number"
-              value={formData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="membership">Membership Plan <span className="text-destructive">*</span></Label>
-            <Select value={formData.membership} onValueChange={(v) => handleInputChange("membership", v)}>
-              <SelectTrigger id="membership">
-                <SelectValue placeholder="Select plan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Standard">Standard</SelectItem>
-                <SelectItem value="Premium">Premium</SelectItem>
-                <SelectItem value="VIP">VIP</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="branch">Branch <span className="text-destructive">*</span></Label>
-            <Select value={formData.branch} onValueChange={(v) => handleInputChange("branch", v)}>
-              <SelectTrigger id="branch">
-                <SelectValue placeholder="Select branch" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Downtown">Downtown</SelectItem>
-                <SelectItem value="Westside">Westside</SelectItem>
-                <SelectItem value="Eastside">Eastside</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="birthday">Birthday (Optional)</Label>
-            <Input
-              id="birthday"
-              type="date"
-              value={formData.birthday}
-              onChange={(e) => handleInputChange("birthday", e.target.value)}
-            />
-          </div>
-        </div>
+        <MemberForm formData={formData} setFormData={setFormData} />
       </QuickAddSheet>
+
+      {/* Edit Employee Sheet */}
+      <QuickAddSheet
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        title="Edit Member"
+        description="Update member details"
+        onSubmit={handleEditMember}
+        submitLabel="Save Changes"
+      >
+        <MemberForm formData={formData} setFormData={setFormData} />
+      </QuickAddSheet>
+
+      {/* Delete Member */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{selectedMember?.name}"?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteMember}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
