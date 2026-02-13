@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
-import { subDays } from "date-fns";
 import { toast } from "sonner";
 import Request from "@/lib/api/client";
 import { Badge } from "@/components/ui/badge";
@@ -263,7 +262,7 @@ const columns: Column<Member>[] = [
     key: "status",
     label: "Status",
     priority: "always",
-    render: (value: "Active" | "Inactive" | "Lead") => (
+    render: (value: "Active" | "Inactive" | "Lead" | "Paused") => (
       <StatusBadge status={value === "Active" ? "success" : value === "Inactive" ? "error" : "warning"} label={value.charAt(0).toUpperCase() + value.slice(1)} />
     ),
   },
