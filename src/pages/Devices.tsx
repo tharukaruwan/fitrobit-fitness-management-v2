@@ -36,7 +36,7 @@ interface ApiDevice {
   color?: string;
   status?: string;
   lastUpdated?: Date;
-  branch?: string;
+  branch?: Branch;
   branchName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -44,9 +44,9 @@ interface ApiDevice {
 
 interface ApiListResponse {
   analytics: {
-    totalDevicees: number;
-    activeDevicees: number;
-    inactiveDevicees: number;
+    totalDevices: number;
+    activeDevices: number;
+    inactiveDevices: number;
   };
   data: ApiDevice[];
   dataCount: number;
@@ -58,7 +58,7 @@ interface ApiListResponse {
 interface Device {
   id: string;
   name: string;
-  type: string; // "Fingerprint" , "QR" , "Face", "RFID"
+  type: string;
   deviceId?: string;
   firmware?: string;
   networkAddress?: string;
@@ -71,141 +71,169 @@ interface Device {
   updatedAt?: string;
 }
 
+interface Branch {
+  _id: string;
+  name: string;
+  status: "Active" | "Inactive";
+}
+
+interface BranchListResponse {
+  data: Branch[];
+  message: string;
+}
+
 const mapApiDevice = (device: ApiDevice): Device => ({
   id: device._id,
   name: device.name,
-  status: device.status || "Inactive",
+  status: device.status || "offline",
   deviceId: device.deviceId,
   lastUpdated: device.lastUpdated ? new Date(device.lastUpdated).toLocaleString() : "No data found",
   createdAt: device.createdAt ? new Date(device.createdAt).toLocaleString() : "No data found",
   color: device.color,
   type: device.type,
-  branchName: device.branchName
+  branch: device.branch ? device.branch._id : "",
+  branchName: device.branch ? device.branch.name : "",
 });
 
-const fetchDevice = async (page: number, search: string, status: string) => {
+const fetchDevice = async (page: number, search: string, status: string, branch: string) => {
   const params: Record<string, unknown> = {
     currentPageIndex: page,
     dataPerPage: ITEMS_PER_PAGE,
   };
   if (search) params.search = search;
   if (status && status !== "all") params["filters[status]"] = status;
+  if (branch && branch !== "all") params["filters[branch]"] = branch;
 
   const res = await Request.get<ApiListResponse>("/devices/list", params);
   return res;
 };
 
+// Fetch all active branches for the dropdown
+const fetchBranches = async () => {
+  const params = {
+    "filters[status]": "Active",
+    dataPerPage: 100, // Get all active branches
+  };
+  const res = await Request.get<BranchListResponse>("/branchers/list", params);
+  return res.data || [];
+};
+
 interface DeviceFormProps {
   formData: {
-    [x: string]: string;
-    type: string;
     deviceId: string;
     name: string;
+    type: string;
+    branch: string;
     color: string;
-    status: "Active" | "Inactive";
   };
   setFormData: React.Dispatch<React.SetStateAction<{
+    deviceId: string;
     name: string;
+    type: string;
+    branch: string;
     color: string;
-    status: "Active" | "Inactive";
   }>>;
 }
 
-const DeviceForm = ({ formData, setFormData }: DeviceFormProps) => (
-  <div className="space-y-4">
-    <div>
-      <Label htmlFor="deviceId">Device Id <span className="text-red-500">*</span></Label>
-      <Input
-        id="deviceId"
-        value={formData.deviceId}
-        onChange={(e) => setFormData(prev => ({ ...prev, deviceId: e.target.value }))}
-        placeholder="DeviceId of this device"
-        className="mt-1.5"
-      />
-    </div>
-    <div>
-      <Label htmlFor="name">Device Name <span className="text-red-500">*</span></Label>
-      <Input
-        id="name"
-        value={formData.name}
-        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-        placeholder="e.g., Premium Plans"
-        className="mt-1.5"
-      />
-    </div>
-    <div className="space-y-2">
-      <Label htmlFor="membership">Device Type <span className="text-destructive">*</span></Label>
-      <Select value={formData.type} onValueChange={(v) => setFormData(prev => ({ ...prev, type: v }))}>
-        <SelectTrigger id="membership">
-          <SelectValue placeholder="Select plan" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="Fingerprint">Fingerprint</SelectItem>
-          <SelectItem value="QR">QR</SelectItem>
-          <SelectItem value="Face">Face</SelectItem>
-          <SelectItem value="RFID">RFID</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-    <div className="space-y-2">
-      {/* TODO Integrate async select form branchers */}
-      <Label htmlFor="branch">Branch <span className="text-destructive">*</span></Label>
-      <Select value={formData.branch} onValueChange={(v) => setFormData(prev => ({ ...prev, branch: v }))}>
-        <SelectTrigger id="branch">
-          <SelectValue placeholder="Select branch" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="Downtown">Downtown</SelectItem>
-          <SelectItem value="Westside">Westside</SelectItem>
-          <SelectItem value="Eastside">Eastside</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-    <div>
-      <Label className="flex items-center gap-2">
-        <Palette className="h-4 w-4" />
-        Color
-      </Label>
-      <div className="flex gap-2 mt-2 flex-wrap">
-        {colorOptions.map((color) => (
-          <button
-            key={color}
-            type="button"
-            className={`w-8 h-8 rounded-lg transition-all ${formData.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'hover:scale-105'}`}
-            style={{ backgroundColor: color }}
-            onClick={() => setFormData(prev => ({ ...prev, color }))}
-          />
-        ))}
-      </div>
-    </div>
-    <div>
-      <Label>Status <span className="text-red-500">*</span></Label>
-      <div className="flex gap-2 mt-2">
-        <Button
-          type="button"
-          variant={formData.status === "Active" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFormData(prev => ({ ...prev, status: "Active" }))}
-        >
-          Active
-        </Button>
-        <Button
-          type="button"
-          variant={formData.status === "Inactive" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFormData(prev => ({ ...prev, status: "Inactive" }))}
-        >
-          Inactive
-        </Button>
-      </div>
-    </div>
-  </div>
-);
+const DeviceForm = ({ formData, setFormData }: DeviceFormProps) => {
+  // Fetch branches for dropdown
+  const { data: branches = [], isLoading: branchesLoading } = useQuery({
+    queryKey: ["branches-dropdown"],
+    queryFn: fetchBranches,
+  });
 
-export default function Devicees() {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="deviceId">Device Id <span className="text-red-500">*</span></Label>
+        <Input
+          id="deviceId"
+          value={formData.deviceId}
+          onChange={(e) => setFormData(prev => ({ ...prev, deviceId: e.target.value }))}
+          placeholder="Device ID of this device"
+          className="mt-1.5"
+        />
+      </div>
+      <div>
+        <Label htmlFor="name">Device Name <span className="text-red-500">*</span></Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          placeholder="e.g., Main Entrance Scanner"
+          className="mt-1.5"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="type">Device Type <span className="text-destructive">*</span></Label>
+        <Select value={formData.type} onValueChange={(v) => setFormData(prev => ({ ...prev, type: v }))}>
+          <SelectTrigger id="type">
+            <SelectValue placeholder="Select device type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Fingerprint">Fingerprint</SelectItem>
+            <SelectItem value="QR">QR</SelectItem>
+            <SelectItem value="Face">Face</SelectItem>
+            <SelectItem value="RFID">RFID</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="branch">Branch <span className="text-destructive">*</span></Label>
+        <Select
+          value={formData.branch}
+          onValueChange={(v) => setFormData(prev => ({ ...prev, branch: v }))}
+          disabled={branchesLoading}
+        >
+          <SelectTrigger id="branch">
+            <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select branch"} />
+          </SelectTrigger>
+          <SelectContent>
+            {branches.length === 0 && !branchesLoading ? (
+              <SelectItem value="no-branches" disabled>
+                No active branches available
+              </SelectItem>
+            ) : (
+              branches.map((branch) => (
+                <SelectItem key={branch._id} value={branch._id}>
+                  {branch.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {branches.length === 0 && !branchesLoading && (
+          <p className="text-xs text-muted-foreground">
+            Please create an active branch first
+          </p>
+        )}
+      </div>
+      <div>
+        <Label className="flex items-center gap-2">
+          <Palette className="h-4 w-4" />
+          Color
+        </Label>
+        <div className="flex gap-2 mt-2 flex-wrap">
+          {colorOptions.map((color) => (
+            <button
+              key={color}
+              type="button"
+              className={`w-8 h-8 rounded-lg transition-all ${formData.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'hover:scale-105'}`}
+              style={{ backgroundColor: color }}
+              onClick={() => setFormData(prev => ({ ...prev, color }))}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function Devices() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -217,8 +245,8 @@ export default function Devicees() {
     name: "",
     deviceId: "",
     type: "",
+    branch: "",
     color: "#22c55e",
-    status: "Active" as "Active" | "Inactive",
   });
 
   const columns: Column<Device>[] = [
@@ -235,7 +263,7 @@ export default function Devicees() {
             <div className="min-w-0">
               <p className="font-medium text-sm truncate">{item.name}</p>
               <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                Last Seen : {item.lastUpdated || "No data found "}
+                Last Seen: {item.lastUpdated || "No data found"}
               </p>
             </div>
           </div>
@@ -244,9 +272,9 @@ export default function Devicees() {
     },
     { key: "deviceId", label: "Device Id", priority: "md" },
     { key: "type", label: "Type", priority: "md" },
+    { key: "branchName", label: "Branch", priority: "md" },
     { key: "firmware", label: "Firmware", priority: "md" },
     { key: "networkAddress", label: "Network", priority: "md" },
-    { key: "branch", label: "Branch", priority: "md" },
     {
       key: "status",
       label: "Status",
@@ -277,17 +305,17 @@ export default function Devicees() {
   ];
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
-    queryKey: ["devices-list", currentPage, searchQuery, statusFilter],
-    queryFn: () => fetchDevice(currentPage, searchQuery, statusFilter),
+    queryKey: ["devices-list", currentPage, searchQuery, statusFilter, branchFilter],
+    queryFn: () => fetchDevice(currentPage, searchQuery, statusFilter, branchFilter),
   });
 
-  const deviceers = apiResponse?.data?.map(mapApiDevice) ?? [];
+  const devices = apiResponse?.data?.map(mapApiDevice) ?? [];
   const totalItems = apiResponse?.dataCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / (apiResponse?.dataPerPage || ITEMS_PER_PAGE)));
   const analytics = apiResponse?.analytics ? {
-    totalDevicees: apiResponse?.analytics?.totalDevicees || 0,
-    activeDevicees: apiResponse?.analytics?.activeDevicees || 0,
-    inactiveDevicees: apiResponse?.analytics?.inactiveDevicees || 0,
+    totalDevices: apiResponse?.analytics?.totalDevices || 0,
+    activeDevices: apiResponse?.analytics?.activeDevices || 0,
+    inactiveDevices: apiResponse?.analytics?.inactiveDevices || 0,
   } : { totalDevices: 0, activeDevices: 0, inactiveDevices: 0 };
 
   const handleSearch = (query: string) => {
@@ -296,10 +324,24 @@ export default function Devicees() {
   };
 
   const handleAddDevice = async () => {
+    // Validation
     if (!formData.name.trim()) {
       toast.error("Device name is required");
       return;
     }
+    if (!formData.deviceId.trim()) {
+      toast.error("Device ID is required");
+      return;
+    }
+    if (!formData.type) {
+      toast.error("Device type is required");
+      return;
+    }
+    if (!formData.branch) {
+      toast.error("Branch is required");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await Request.post("/devices/create", formData);
@@ -307,15 +349,34 @@ export default function Devicees() {
       setIsAddOpen(false);
       resetForm();
       refetch();
-    } catch {
-      toast.error("Failed to add device");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to add device");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleEditDevice = async () => {
-    if (!selectedDevice || !formData.name.trim()) return;
+    if (!selectedDevice) return;
+
+    // Validation
+    if (!formData.name.trim()) {
+      toast.error("Device name is required");
+      return;
+    }
+    if (!formData.deviceId.trim()) {
+      toast.error("Device ID is required");
+      return;
+    }
+    if (!formData.type) {
+      toast.error("Device type is required");
+      return;
+    }
+    if (!formData.branch) {
+      toast.error("Branch is required");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await Request.put(`/devices/${selectedDevice.id}`, formData);
@@ -323,28 +384,38 @@ export default function Devicees() {
       setIsEditOpen(false);
       resetForm();
       refetch();
-    } catch {
-      toast.error("Failed to update device");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to update device");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteDevice = () => {
+  const handleDeleteDevice = async () => {
     if (!selectedDevice) return;
-    const totalItems = 1;
-    if (totalItems > 0) {
-      toast.error("Delete device integration coming soon");
+
+    setIsSubmitting(true);
+    try {
+      await Request.delete(`/devices/${selectedDevice.id}`);
+      toast.success("Device deleted successfully");
       setIsDeleteOpen(false);
-      return;
+      setSelectedDevice(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to delete device");
+    } finally {
+      setIsSubmitting(false);
     }
-    toast.info("Delete device integration coming soon");
-    setIsDeleteOpen(false);
-    setSelectedDevice(null);
   };
 
   const resetForm = () => {
-    setFormData({ name: "", deviceId: "", color: "#22c55e", status: "Active", type: "" });
+    setFormData({
+      name: "",
+      deviceId: "",
+      type: "",
+      branch: "",
+      color: "#22c55e",
+    });
     setSelectedDevice(null);
   };
 
@@ -352,13 +423,17 @@ export default function Devicees() {
     setSelectedDevice(device);
     setFormData({
       name: device.name,
-      color: device.color,
-      deviceId: device.deviceId,
-      status: device.status === "Active" ? "Active" : "Inactive",
-      type: device.type
+      deviceId: device.deviceId || "",
+      type: device.type,
+      branch: device.branch || "",
+      color: device.color || "#22c55e",
     });
     setIsEditOpen(true);
   };
+
+  const allClasses = [
+    "Yoga", "HIIT", "Spin", "Pilates", "CrossFit", "Boxing", "Zumba", "Strength Training", "Swimming", "Kickboxing",
+  ];
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -366,8 +441,8 @@ export default function Devicees() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Devicees</h1>
-          <p className="text-muted-foreground">Manage and organize deviceers efficiently</p>
+          <h1 className="text-2xl font-bold text-foreground">Devices</h1>
+          <p className="text-muted-foreground">Manage and organize devices efficiently</p>
         </div>
         <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
@@ -376,8 +451,8 @@ export default function Devicees() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Total Devicees */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* Total Devices */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -385,14 +460,14 @@ export default function Devicees() {
             </div>
             <div>
               <p className="text-2xl font-bold text-card-foreground">
-                {analytics.totalDevicees}
+                {analytics.totalDevices}
               </p>
-              <p className="text-xs text-muted-foreground">Total Devicees</p>
+              <p className="text-xs text-muted-foreground">Total Devices</p>
             </div>
           </div>
         </div>
 
-        {/* Online Devicees */}
+        {/* Active Devices */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
@@ -400,14 +475,14 @@ export default function Devicees() {
             </div>
             <div>
               <p className="text-2xl font-bold text-card-foreground">
-                {analytics.activeDevicees}
+                {analytics.activeDevices}
               </p>
-              <p className="text-xs text-muted-foreground">Online Devicees</p>
+              <p className="text-xs text-muted-foreground">Active Devices</p>
             </div>
           </div>
         </div>
 
-        {/* Offline Devicees */}
+        {/* Inactive Devices */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
@@ -415,24 +490,9 @@ export default function Devicees() {
             </div>
             <div>
               <p className="text-2xl font-bold text-card-foreground">
-                {analytics.inactiveDevicees}
+                {analytics.inactiveDevices}
               </p>
-              <p className="text-xs text-muted-foreground">Offline Devicees</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Active Devicees */}
-        <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-card-foreground">
-                {analytics.activeDevicees}
-              </p>
-              <p className="text-xs text-muted-foreground">Active Devicees</p>
+              <p className="text-xs text-muted-foreground">Inactive Devices</p>
             </div>
           </div>
         </div>
@@ -450,13 +510,32 @@ export default function Devicees() {
             type: "sync",
             options: [
               { label: "All Status", value: "all" },
-              { label: "Active", value: "Active" },
-              { label: "Inactive", value: "Inactive" },
+              { label: "Offline", value: "offline" },
+              { label: "Online", value: "online" },
             ],
             value: statusFilter,
             onChange: (val) => {
               setStatusFilter(val);
               setCurrentPage(1);
+            },
+          },
+          {
+            key: "branch",
+            label: "Branch",
+            value: branchFilter || "all",
+            onChange: (v) => {
+              setBranchFilter(v);
+              setCurrentPage(1);
+            },
+            type: "async" as const,
+            onSearch: async (query: string) => {
+              await new Promise((r) => setTimeout(r, 300));
+              return [
+                { value: "all", label: "All Branches" },
+                ...allClasses
+                  .filter((c) => c.toLowerCase().includes(query.toLowerCase()))
+                  .map((c) => ({ value: c, label: c })),
+              ];
             },
           },
         ]}
@@ -465,7 +544,7 @@ export default function Devicees() {
       {/* Table */}
       <ResponsiveTable<Device>
         columns={columns}
-        data={deviceers}
+        data={devices}
         keyExtractor={(device) => device.id}
         rowActions={rowActions}
         isLoading={isLoading}
@@ -483,7 +562,8 @@ export default function Devicees() {
         onOpenChange={setIsAddOpen}
         title="Add Device"
         onSubmit={handleAddDevice}
-        submitLabel={isSubmitting ? "Adding..." : "Add Device"}
+        submitLabel="Add Device"
+        isSubmitting={isSubmitting}
       >
         <DeviceForm formData={formData} setFormData={setFormData} />
       </QuickAddSheet>
@@ -493,7 +573,8 @@ export default function Devicees() {
         onOpenChange={setIsEditOpen}
         title="Edit Device"
         onSubmit={handleEditDevice}
-        submitLabel={isSubmitting ? "Saving..." : "Save Changes"}
+        submitLabel="Save Changes"
+        isSubmitting={isSubmitting}
       >
         <DeviceForm formData={formData} setFormData={setFormData} />
       </QuickAddSheet>
@@ -505,12 +586,24 @@ export default function Devicees() {
             <DialogTitle>Delete Device</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete "{selectedDevice?.name}"?
-              {(" This action cannot be undone.")}
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteDevice}>Delete</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteDevice}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Deleting..." : "Delete"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
