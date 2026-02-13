@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { Building2, Users, MapPin, TrendingUp, FolderOpen, Layers, Phone, Palette, Pencil, Trash2 } from "lucide-react";
+import { Building2, Users, MapPin, TrendingUp, FolderOpen, Layers, Phone, Palette, Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import Request from "@/lib/api/client";
 import { Label } from "@/components/ui/label";
@@ -17,20 +17,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 const ITEMS_PER_PAGE = 8;
 
 const colorOptions = [
   "#22c55e", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#ef4444", "#14b8a6"
 ];
-
-const getColor = (id: string) => {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colorOptions[Math.abs(hash) % colorOptions.length];
-};
 
 interface ApiBranch {
   _id: string;
@@ -69,7 +62,7 @@ const mapApiBranch = (branch: ApiBranch): Branch => ({
   phoneNumber: branch.phoneNumber,
   email: branch.email,
   createdAt: new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }),
-  color: getColor(branch.color)
+  color: branch.color
 });
 
 const fetchBranch = async (page: number, search: string, status: string) => {
@@ -86,14 +79,16 @@ const fetchBranch = async (page: number, search: string, status: string) => {
 
 interface BranchFormProps {
   formData: {
+    phoneNumber: string;
+    email: string;
     name: string;
-    description: string;
+    address: string;
     color: string;
     status: "Active" | "Inactive";
   };
   setFormData: React.Dispatch<React.SetStateAction<{
     name: string;
-    description: string;
+    address: string;
     color: string;
     status: "Active" | "Inactive";
   }>>;
@@ -102,7 +97,7 @@ interface BranchFormProps {
 const BranchForm = ({ formData, setFormData }: BranchFormProps) => (
   <div className="space-y-4">
     <div>
-      <Label htmlFor="name">Branch Name</Label>
+      <Label htmlFor="name">Branch Name <span className="text-red-500">*</span></Label>
       <Input
         id="name"
         value={formData.name}
@@ -112,12 +107,32 @@ const BranchForm = ({ formData, setFormData }: BranchFormProps) => (
       />
     </div>
     <div>
-      <Label htmlFor="description">Description</Label>
+      <Label htmlFor="address">Address <span className="text-red-500">*</span></Label>
       <Input
-        id="description"
-        value={formData.description}
-        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-        placeholder="Brief description of this branch"
+        id="address"
+        value={formData.address}
+        onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+        placeholder="Address of this branch"
+        className="mt-1.5"
+      />
+    </div>
+    <div>
+      <Label htmlFor="phoneNumber">Phone No <span className="text-red-500">*</span></Label>
+      <Input
+        id="phoneNumber"
+        value={formData.phoneNumber}
+        onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+        placeholder="Phone number of this branch"
+        className="mt-1.5"
+      />
+    </div>
+    <div>
+      <Label htmlFor="email">Email</Label>
+      <Input
+        id="email"
+        value={formData.email}
+        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+        placeholder="Email of this branch"
         className="mt-1.5"
       />
     </div>
@@ -139,7 +154,7 @@ const BranchForm = ({ formData, setFormData }: BranchFormProps) => (
       </div>
     </div>
     <div>
-      <Label>Status</Label>
+      <Label>Status <span className="text-red-500">*</span></Label>
       <div className="flex gap-2 mt-2">
         <Button
           type="button"
@@ -175,7 +190,9 @@ export default function Branches() {
 
   const [formData, setFormData] = useState({
     name: "",
-    description: "",
+    address: "",
+    phoneNumber: "",
+    email: "",
     color: "#22c55e",
     status: "Active" as "Active" | "Inactive",
   });
@@ -185,22 +202,34 @@ export default function Branches() {
       key: "name",
       label: "Branch",
       priority: "always",
-      render: (_, item) => (
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}15` }}>
-            <Layers className="w-5 h-5" style={{ color: item.color }} />
+      render: (_, item) => {
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}20` }}>
+              <Layers className="w-5 h-5" style={{ color: item.color }} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                <Phone className="w-3 h-3 shrink-0" /> {item.phoneNumber || "No phone number"}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="font-medium text-sm truncate">{item.name}</p>
-            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-              <Phone className="w-3 h-3 shrink-0" /> {item.phoneNumber || "No phone number"}
-            </p>
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     { key: "email", label: "Email", priority: "md" },
     { key: "address", label: "Address", priority: "md" },
+    {
+      key: "status",
+      label: "Status",
+      priority: "md",
+      render: (value) => (
+        <Badge variant={value === "Active" ? "default" : "secondary"}>
+          {value}
+        </Badge>
+      ),
+    },
   ];
 
   const rowActions: RowAction<Branch>[] = [
@@ -283,7 +312,7 @@ export default function Branches() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", color: "#22c55e", status: "Active" });
+    setFormData({ name: "", address: "", phoneNumber: "", email: "", color: "#22c55e", status: "Active" });
     setSelectedBranch(null);
   };
 
@@ -291,8 +320,10 @@ export default function Branches() {
     setSelectedBranch(branch);
     setFormData({
       name: branch.name,
-      description: "",
-      color: getColor(branch.id),
+      address: branch.address,
+      color: branch.color,
+      phoneNumber: branch.phoneNumber,
+      email: branch.email,
       status: branch.status === "Active" ? "Active" : "Inactive",
     });
     setIsEditOpen(true);
@@ -300,6 +331,19 @@ export default function Branches() {
 
   return (
     <div className="space-y-4 animate-fade-in">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Branches</h1>
+          <p className="text-muted-foreground">Manage and organize branchers efficiently</p>
+        </div>
+        <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Branch
+        </Button>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
