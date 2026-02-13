@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { Building2, Users, MapPin, TrendingUp, FolderOpen, Layers, Phone, Palette, Pencil, Trash2, Plus } from "lucide-react";
+import { Building2, Layers, Phone, Palette, Pencil, Trash2, Plus, XCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import Request from "@/lib/api/client";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,11 @@ interface ApiBranch {
 }
 
 interface ApiListResponse {
+  analytics: {
+    totalBranches: number;
+    activeBranches: number;
+    inactiveBranches: number;
+  };
   data: ApiBranch[];
   dataCount: number;
   currentPaginationIndex: number;
@@ -206,7 +211,7 @@ export default function Branches() {
         return (
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}20` }}>
-              <Layers className="w-5 h-5" style={{ color: item.color }} />
+              <Building2 className="w-5 h-5" style={{ color: item.color }} />
             </div>
             <div className="min-w-0">
               <p className="font-medium text-sm truncate">{item.name}</p>
@@ -257,6 +262,11 @@ export default function Branches() {
   const branchers = apiResponse?.data?.map(mapApiBranch) ?? [];
   const totalItems = apiResponse?.dataCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / (apiResponse?.dataPerPage || ITEMS_PER_PAGE)));
+  const analytics = apiResponse?.analytics ? {
+    totalBranches: apiResponse?.analytics?.totalBranches || 0,
+    activeBranches: apiResponse?.analytics?.activeBranches || 0,
+    inactiveBranches: apiResponse?.analytics?.inactiveBranches || 0,
+  } : { totalBranchs: 0, activeBranchs: 0, inactiveBranchs: 0 };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -346,14 +356,47 @@ export default function Branches() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Total Branches */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <Building2 className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">{totalItems}</p>
+              <p className="text-2xl font-bold text-card-foreground">
+                {analytics.totalBranches}
+              </p>
               <p className="text-xs text-muted-foreground">Total Branches</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Branches */}
+        <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-card-foreground">
+                {analytics.activeBranches}
+              </p>
+              <p className="text-xs text-muted-foreground">Active Branches</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Inactive Branches */}
+        <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+              <XCircle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-card-foreground">
+                {analytics.inactiveBranches}
+              </p>
+              <p className="text-xs text-muted-foreground">Inactive Branches</p>
             </div>
           </div>
         </div>
