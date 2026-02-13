@@ -35,6 +35,13 @@ interface ApiMember {
   birthday?: string; // Format: "MM-DD"
 }
 interface ApiListResponse {
+  analytics: {
+    totalMembers: number;
+    activeMembers: number;
+    inactiveMembers: number;
+    leadMembers: number;
+    pausedMembers: number;
+  };
   data: ApiMember[];
   dataCount: number;
   currentPaginationIndex: number;
@@ -103,30 +110,16 @@ const isBirthdaySoon = (birthday?: string) => {
   return diffDays > 0 && diffDays <= 7;
 };
 
-const sampleData: Member[] = [
-  { id: 1, memberId: "MEM-001", name: "John Smith", image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=150", email: "john.smith@email.com", phone: "+1 234 567 890", membership: "Premium", classes: ["Yoga", "HIIT", "Spin"], pt: ["Weight Loss", "Cardio Fitness"], joinDate: "Jan 15, 2024", expiryDate: "Jan 15, 2025", status: "Active", branch: "Downtown", birthday: "12-31" },
-  { id: 2, memberId: "MEM-002", name: "Sarah Johnson", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", email: "sarah.j@email.com", phone: "+1 234 567 891", membership: "VIP", classes: ["Pilates", "Zumba"], pt: ["Body Toning"], joinDate: "Mar 20, 2024", expiryDate: "Mar 20, 2025", status: "Active", branch: "Downtown", birthday: "01-05" },
-  { id: 3, memberId: "MEM-003", name: "Mike Davis", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150", email: "mike.d@email.com", phone: "+1 234 567 892", membership: "Standard", classes: ["CrossFit", "Boxing"], pt: ["Muscle Building", "Sports Performance"], joinDate: "Feb 10, 2024", expiryDate: "Feb 10, 2025", status: "Active", branch: "Westside" },
-  { id: 4, memberId: "MEM-004", name: "Emily Chen", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150", email: "emily.c@email.com", phone: "+1 234 567 893", membership: "Premium", classes: ["Yoga", "Pilates", "Swimming"], pt: ["Flexibility"], joinDate: "Dec 5, 2023", expiryDate: "Dec 5, 2024", status: "Inactive", branch: "Downtown" },
-  { id: 5, memberId: "MEM-005", name: "David Wilson", image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150", email: "david.w@email.com", phone: "+1 234 567 894", membership: "Standard", classes: ["HIIT"], pt: [], joinDate: "Nov 28, 2024", expiryDate: "Nov 28, 2025", status: "Inactive", branch: "Eastside", birthday: "01-02" },
-  { id: 6, memberId: "MEM-006", name: "Lisa Brown", image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150", email: "lisa.b@email.com", phone: "+1 234 567 895", membership: "VIP", classes: ["Spin", "Zumba", "Kickboxing", "Strength Training"], pt: ["Weight Loss", "Endurance"], joinDate: "Aug 12, 2024", expiryDate: "Aug 12, 2025", status: "Active", branch: "Downtown" },
-  { id: 7, memberId: "MEM-007", name: "James Taylor", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150", email: "james.t@email.com", phone: "+1 234 567 896", membership: "Premium", classes: ["CrossFit", "Boxing", "HIIT"], pt: ["Muscle Building"], joinDate: "Oct 3, 2024", expiryDate: "Oct 3, 2025", status: "Active", branch: "Westside" },
-  { id: 8, memberId: "MEM-008", name: "Anna Martinez", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150", email: "anna.m@email.com", phone: "+1 234 567 897", membership: "Standard", classes: ["Yoga", "Swimming"], pt: ["Rehabilitation"], joinDate: "Sep 15, 2024", expiryDate: "Sep 15, 2025", status: "Active", branch: "Eastside" },
-  { id: 9, memberId: "MEM-009", name: "Robert Lee", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150", email: "robert.l@email.com", phone: "+1 234 567 898", membership: "VIP", classes: ["Pilates", "Strength Training"], pt: ["Cardio Fitness", "Body Toning"], joinDate: "Jul 22, 2024", expiryDate: "Jul 22, 2025", status: "Active", branch: "Downtown" },
-  { id: 10, memberId: "MEM-010", name: "Jessica White", image: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150", email: "jessica.w@email.com", phone: "+1 234 567 899", membership: "Premium", classes: ["Zumba", "Spin"], pt: ["Flexibility", "Endurance"], joinDate: "Jun 8, 2024", expiryDate: "Jun 8, 2025", status: "Active", branch: "Westside" },
-  { id: 11, memberId: "MEM-011", name: "Chris Anderson", image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=150", email: "chris.a@email.com", phone: "+1 234 567 900", membership: "Standard", classes: ["Boxing"], pt: [], joinDate: "May 1, 2024", expiryDate: "May 1, 2025", status: "Inactive", branch: "Downtown" },
-  { id: 12, memberId: "MEM-012", name: "Michelle Garcia", image: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150", email: "michelle.g@email.com", phone: "+1 234 567 901", membership: "Premium", classes: ["Yoga", "HIIT", "Kickboxing"], pt: ["Sports Performance"], joinDate: "Apr 20, 2024", expiryDate: "Apr 20, 2025", status: "Active", branch: "Eastside" },
-];
-
 const ITEMS_PER_PAGE = 8;
 
-const fetchMembers = async (page: number, search: string, status: string) => {
+const fetchMembers = async (page: number, search: string, status: string, branch: string) => {
   const params: Record<string, unknown> = {
     currentPageIndex: page,
     dataPerPage: ITEMS_PER_PAGE,
   };
   if (search) params.search = search;
   if (status && status !== "all") params["filters[status]"] = status;
+  if (branch && branch !== "all") params["filters[branch]"] = branch;
 
   const res = await Request.get<ApiListResponse>("/members/list", params);
   return res;
@@ -349,12 +342,6 @@ export default function Members() {
     { icon: Mail, label: "Email", onClick: handleEmail, variant: "default" },
   ];
 
-  const { paginatedData, searchQuery: sampleSearchQuery, handleSearch: sampleHandleSearch, filters, handleFilter, paginationProps } = useTableData({
-    data: sampleData,
-    itemsPerPage: 8,
-    searchFields: ["name", "memberId", "email"],
-  });
-
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -365,13 +352,20 @@ export default function Members() {
   };
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
-    queryKey: ["members-list", currentPage, searchQuery, statusFilter],
-    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter),
+    queryKey: ["members-list", currentPage, searchQuery,  statusFilter, branchFilter],
+    queryFn: () => fetchMembers(currentPage, searchQuery, statusFilter, branchFilter),
   });
 
   const members = apiResponse?.data?.map(mapApiMember) ?? [];
   const totalItems = apiResponse?.dataCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / (apiResponse?.dataPerPage || ITEMS_PER_PAGE)));
+  const analytics = apiResponse?.analytics ? {
+    totalMembers: apiResponse?.analytics?.totalMembers || 0,
+    activeMembers: apiResponse?.analytics?.activeMembers || 0,
+    inactiveMembers: apiResponse?.analytics?.inactiveMembers || 0,
+    leadMembers: apiResponse?.analytics?.leadMembers || 0,
+    pausedMembers: apiResponse?.analytics?.pausedMembers || 0,
+  } : { totalMembers: 0, activeMembers: 0, inactiveMembers: 0, leadMembers: 0, pausedMembers: 0 };
 
   const handleSubmit = () => {
     // Validate required fields
@@ -416,23 +410,23 @@ export default function Members() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+              <UserCheck className="w-5 h-5 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">1,248</p>
-              <p className="text-xs text-muted-foreground">Total Members</p>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.activeMembers}</p>
+              <p className="text-xs text-muted-foreground">Active</p>
             </div>
           </div>
         </div>
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-success" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Users className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">1,156</p>
-              <p className="text-xs text-muted-foreground">Active</p>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.leadMembers}</p>
+              <p className="text-xs text-muted-foreground">New Leads</p>
             </div>
           </div>
         </div>
@@ -442,8 +436,8 @@ export default function Members() {
               <UserPlus className="w-5 h-5 text-warning" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">23</p>
-              <p className="text-xs text-muted-foreground">New This Month</p>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.pausedMembers}</p>
+              <p className="text-xs text-muted-foreground">Paused</p>
             </div>
           </div>
         </div>
@@ -453,8 +447,8 @@ export default function Members() {
               <UserX className="w-5 h-5 text-destructive" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-card-foreground">69</p>
-              <p className="text-xs text-muted-foreground">Expired</p>
+              <p className="text-2xl font-bold text-card-foreground">{analytics.inactiveMembers}</p>
+              <p className="text-xs text-muted-foreground">Inactive</p>
             </div>
           </div>
         </div>
@@ -482,8 +476,10 @@ export default function Members() {
             type: "sync",
             options: [
               { label: "All Status", value: "all" },
-              { label: "Online", value: "online" },
-              { label: "Offline", value: "offline" },
+              { label: "Active", value: "Active" },
+              { label: "Inactive", value: "Inactive" },
+              { label: "Lead", value: "Lead" },
+              { label: "Paused", value: "Pau  sed" },
             ],
             value: statusFilter,
             onChange: (val) => {
@@ -514,6 +510,7 @@ export default function Members() {
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
         rowActions={rowActions}
+        onRowClick={(item) => navigate(`/members/${item.id}`)}
         pagination={{
           currentPage,
           totalPages,
