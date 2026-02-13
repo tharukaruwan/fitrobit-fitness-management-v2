@@ -244,6 +244,7 @@ const TrainingCategories = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<TrainingCategory | null>(null);
   
@@ -253,8 +254,6 @@ const TrainingCategories = () => {
     color: "#22c55e",
     status: "Active" as "Active" | "Inactive",
   });
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: apiResponse, isLoading, refetch } = useQuery({
     queryKey: ["training-categories", currentPage, searchQuery, statusFilter],
