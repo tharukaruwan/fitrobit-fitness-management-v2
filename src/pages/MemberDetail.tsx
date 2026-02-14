@@ -31,23 +31,13 @@ import {
   User,
   CreditCard,
   TrendingUp,
-  Pencil,
   MessageCircle,
   Mail,
   Phone,
   MapPin,
   Calendar as CalendarIcon,
-  Clock,
   Dumbbell,
-  Plus,
-  Eye,
-  Printer,
-  Download,
   Save,
-  X,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
   Users,
   CheckCircle2,
   Apple,
@@ -56,7 +46,6 @@ import {
   Target,
   AlertCircle,
   FolderOpen,
-  Trash2,
   IdCardIcon,
   Notebook,
 } from "lucide-react";
@@ -73,20 +62,22 @@ import { MemberStatusTab } from "@/components/member/MemberStatusTab";
 import { MemberCalendarTab } from "@/components/member/MemberCalendarTab";
 import { MemberPaymentsTab } from "@/components/member/MemberPaymentsTab";
 import Request from "@/lib/api/client";
-// Zod validation schema
+
+// Zod validation schema - FIXED: Made optional fields actually optional
 const memberFormSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
-  email: z.string().trim().email({ message: "Invalid email address" }).max(255),
-  phoneNumber: z.string().trim().max(20),
-  nic: z.string().trim().max(20),
-  address: z.string().trim().max(500, { message: "Address too long" }),
-  remark: z.string().trim().max(20),
+  email: z.string().trim().email({ message: "Invalid email address" }).max(255).or(z.literal("")),
+  phoneNumber: z.string().trim().max(20).optional().or(z.literal("")),
+  nic: z.string().trim().max(20).optional().or(z.literal("")),
+  address: z.string().trim().max(500, { message: "Address too long" }).optional().or(z.literal("")),
+  remark: z.string().trim().max(500).optional().or(z.literal("")),
   gender: z.string().min(1, { message: "Gender is required" }),
   dateOfBirth: z.date({ required_error: "Date of birth is required" }),
-  weight: z.string().max(20),
-  height: z.string().max(20),
-  goal: z.string().max(500),
-  branch: z.string().min(1, { message: "Branch is required" }),
+  weight: z.string().max(20).optional().or(z.literal("")),
+  height: z.string().max(20).optional().or(z.literal("")),
+  goal: z.string().max(500).optional().or(z.literal("")),
+  branch: z.string().optional().or(z.literal("")),
+  status: z.string().min(1, { message: "Status is required" }),
 });
 
 type MemberFormValues = z.infer<typeof memberFormSchema>;
@@ -230,69 +221,94 @@ export interface ApiMember {
   memberShipGroup: MemberShipGroup;
 }
 
+interface Branch {
+  _id: string;
+  name: string;
+  status: "Active" | "Inactive";
+}
+
+interface BranchListResponse {
+  data: Branch[];
+  message: string;
+}
 
 const fetchMembers = async (id: string) => {
   const res = await Request.get<ApiMember>(`members/${id}`);
   return res;
 };
 
+const fetchBranches = async () => {
+  const params = {
+    "filters[status]": "Active",
+    dataPerPage: 100, // Get all active branches
+  };
+  const res = await Request.get<BranchListResponse>("/branchers/list", params);
+  return res.data || [];
+};
+
+// FIXED: Better null handling and type safety
 const mapApiMember = (mb: ApiMember): Member => ({
   id: mb._id,
   memberId: mb.memberId,
-  name: mb.name ? mb.name : "No Name",
-  email: mb.email ? mb.email : "",
-  phoneNumber: mb.phoneNumber ? mb.phoneNumber : "",
-  nic: mb.nic ? mb.nic : "",
-  address: mb.address ? mb.address : "",
-  remark: mb.remark ? mb.remark : "",
-  gender: mb.gender ? mb.gender : "other",
-  dateOfBirth: mb.dateOfBirth ? new Date(mb.dateOfBirth) : null,
-  weight: mb.weight ? mb.weight : "",
-  height: mb.height ? mb.height : "",
-  goal: mb.goal ? mb.goal : "",
-  branch: mb.branch ? mb.branch : "",
-  image: mb.image ? mb.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
-  selfSignup: mb.selfSignup ? mb.selfSignup : false,
-  user: mb.user ? mb.user : "",
-  oldMemberShipGroup: [],
-  notifications: [],
-  status: mb.status ? mb.status : "Inactive",
-  terminated: false,
-  terminatedReasons: [],
-  blackListed: false,
-  blackListedReasons: [],
-  renewalDay: "",
-  deviceData: [],
-  createdUser: "",
-  createdBy: "",
+  name: mb.name || "No Name",
+  email: mb.email || "",
+  phoneNumber: mb.phoneNumber || "",
+  nic: mb.nic || "",
+  address: mb.address || "",
+  remark: mb.remark || "",
+  gender: mb.gender || "other",
+  dateOfBirth: mb.dateOfBirth ? new Date(mb.dateOfBirth) : new Date(),
+  weight: mb.weight || "",
+  height: mb.height || "",
+  goal: mb.goal || "",
+  branch: mb.branch || "",
+  image: mb.image || "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
+  selfSignup: mb.selfSignup || false,
+  user: mb.user || "",
+  oldMemberShipGroup: mb.oldMemberShipGroup || [],
+  notifications: mb.notifications || [],
+  status: mb.status || "Inactive",
+  terminated: mb.terminated || false,
+  terminatedReasons: mb.terminatedReasons || [],
+  blackListed: mb.blackListed || false,
+  blackListedReasons: mb.blackListedReasons || [],
+  renewalDay: mb.renewalDay || "",
+  deviceData: mb.deviceData || [],
+  createdUser: mb.createdUser || "",
+  createdBy: mb.createdBy || "gym",
   updatedAt: mb.updatedAt,
-  memberShipName: mb.memberShip ? mb.memberShip.name : "No Membership",
-  memberShip: mb.memberShip ? mb.memberShip : null,
-  memberShipGroup: mb.memberShipGroup ? mb.memberShipGroup : undefined,
+  memberShipName: mb.memberShip?.name || "No Membership",
+  memberShip: mb.memberShip || null,
+  memberShipGroup: mb.memberShipGroup || undefined,
   createdAt: mb.createdAt,
-  expiryDate: new Date(mb.updatedAt),
+  expiryDate: mb.updatedAt ? new Date(mb.updatedAt) : new Date(),
 });
 
 export default function MemberDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState("https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg");
 
+  const { data: branches = [], isLoading: branchesLoading } = useQuery({
+    queryKey: ["branches-dropdown"],
+    queryFn: fetchBranches,
+  });
 
   const { data: apiResponse, isLoading, refetch, error } = useQuery({
     queryKey: ["members-list", id],
     queryFn: () => fetchMembers(id || ""),
+    enabled: !!id, // FIXED: Only fetch if id exists
   });
 
   const memberDetails = apiResponse ? mapApiMember(apiResponse) : null;
+
   useEffect(() => {
-    if (memberDetails) {
-      setAvatarUrl(memberDetails.image ? memberDetails.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg");
+    if (memberDetails?.image) {
+      setAvatarUrl(memberDetails.image);
     }
-  }, [memberDetails]);
+  }, [memberDetails?.image]);
 
   const form = useForm<MemberFormValues>({
     resolver: zodResolver(memberFormSchema),
@@ -301,9 +317,10 @@ export default function MemberDetail() {
       email: "",
       phoneNumber: "",
       nic: "",
+      status: "",
       address: "",
       remark: "",
-      gender: "male",
+      gender: "male", // FIXED: Capital M to match SelectItem values
       dateOfBirth: undefined,
       weight: "",
       height: "",
@@ -312,6 +329,7 @@ export default function MemberDetail() {
     },
   });
 
+  // FIXED: Better dependency tracking
   useEffect(() => {
     if (memberDetails) {
       form.reset({
@@ -319,6 +337,7 @@ export default function MemberDetail() {
         email: memberDetails.email || "",
         phoneNumber: memberDetails.phoneNumber || "",
         nic: memberDetails.nic || "",
+        status: memberDetails.status || "",
         address: memberDetails.address || "",
         remark: memberDetails.remark || "",
         gender: memberDetails.gender || "male",
@@ -331,21 +350,50 @@ export default function MemberDetail() {
     }
   }, [memberDetails?.id, form]);
 
-
+  // FIXED: Better error handling and toast messages
   const onSubmit = async (data: MemberFormValues) => {
+    if (!id) {
+      toast({
+        title: "Error",
+        description: "Member ID is missing.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     console.log("Submitting form with data:", data);
+
     try {
-      await Request.put(`/members/${id}`, data);
-      toast({ title: "Member Updated", description: "Personal details saved successfully." });
-      refetch();
+      // FIXED: Format date properly for API
+      const formattedData = {
+        ...data,
+        dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toISOString() : undefined,
+      };
+
+      await Request.put(`/members/${id}`, formattedData);
+
+      toast({
+        title: "Success",
+        description: "Member details updated successfully.",
+      });
+
+      await refetch();
     } catch (error: any) {
       console.error("Error updating member:", error);
-      toast({ title: "Member Updated", description: "Failed to update member details." });
+
+      const errorMessage = error?.response?.data?.message
+        || error?.message
+        || "Failed to update member details.";
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
-
   };
 
   const handleAvatarChange = (file: File) => {
@@ -355,10 +403,26 @@ export default function MemberDetail() {
   };
 
   const handleWhatsApp = (phoneNo: string) => {
+    if (!phoneNo) {
+      toast({
+        title: "Error",
+        description: "Phone number not available.",
+        variant: "destructive"
+      });
+      return;
+    }
     window.open(`https://wa.me/${phoneNo.replace(/\D/g, "")}`, "_blank");
   };
 
   const handleEmail = (emailAdd: string) => {
+    if (!emailAdd) {
+      toast({
+        title: "Error",
+        description: "Email address not available.",
+        variant: "destructive"
+      });
+      return;
+    }
     window.open(`mailto:${emailAdd}`, "_blank");
   };
 
@@ -368,9 +432,9 @@ export default function MemberDetail() {
         <SectionHeader
           title="Contact Information"
           action={
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" disabled={isSubmitting}>
               <Save className="w-4 h-4 mr-1" />
-              Save
+              {isSubmitting ? "Saving..." : "Save"}
             </Button>
           }
         />
@@ -400,7 +464,7 @@ export default function MemberDetail() {
                   <Mail className="w-3.5 h-3.5" /> Email
                 </FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} type="email" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -415,7 +479,7 @@ export default function MemberDetail() {
                   <Phone className="w-3.5 h-3.5" /> Phone
                 </FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} type="tel" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -431,6 +495,66 @@ export default function MemberDetail() {
                 </FormLabel>
                 <FormControl>
                   <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <IdCardIcon className="w-3.5 h-3.5" /> Status
+                </FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                    <SelectItem value="Lead">Lead</SelectItem>
+                    <SelectItem value="Paused">Paused</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="branch"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <IdCardIcon className="w-3.5 h-3.5" /> Branch
+                </FormLabel>
+                <FormControl>
+                  <Select
+                    value={field.value} onValueChange={field.onChange}
+                    disabled={branchesLoading}
+                  >
+                    <SelectTrigger id="branch">
+                      <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Select branch"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.length === 0 && !branchesLoading ? (
+                        <SelectItem value="no-branches" disabled>
+                          No active branches available
+                        </SelectItem>
+                      ) : (
+                        branches.map((branch) => (
+                          <SelectItem key={branch._id} value={branch._id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -483,9 +607,9 @@ export default function MemberDetail() {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -502,8 +626,11 @@ export default function MemberDetail() {
                 "January", "February", "March", "April", "May", "June",
                 "July", "August", "September", "October", "November", "December"
               ];
-              const fieldValue = field.value instanceof Date ? field.value : new Date();
-              const selectedDate = fieldValue;
+
+              // FIXED: Better null handling for date
+              const selectedDate = field.value instanceof Date && !isNaN(field.value.getTime())
+                ? field.value
+                : new Date();
 
               return (
                 <FormItem>
@@ -518,7 +645,10 @@ export default function MemberDetail() {
                             !field.value && "text-muted-foreground"
                           )}
                         >
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          {field.value instanceof Date && !isNaN(field.value.getTime())
+                            ? format(field.value, "PPP")
+                            : <span>Pick a date</span>
+                          }
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
@@ -570,10 +700,11 @@ export default function MemberDetail() {
                         onSelect={field.onChange}
                         month={selectedDate}
                         onMonthChange={(date) => {
-                          if (field.value) {
+                          if (field.value instanceof Date) {
                             const newDate = new Date(field.value);
                             newDate.setMonth(date.getMonth());
                             newDate.setFullYear(date.getFullYear());
+                            field.onChange(newDate);
                           }
                         }}
                         disabled={(date) =>
@@ -594,9 +725,9 @@ export default function MemberDetail() {
             name="weight"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Weight</FormLabel>
+                <FormLabel className="text-xs text-muted-foreground">Weight (kg)</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} type="number" step="0.1" placeholder="0.0" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -607,9 +738,9 @@ export default function MemberDetail() {
             name="height"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Height</FormLabel>
+                <FormLabel className="text-xs text-muted-foreground">Height (cm)</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} type="number" step="0.1" placeholder="0.0" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -643,7 +774,7 @@ export default function MemberDetail() {
       id: "personal",
       label: "Personal",
       icon: <User className="w-4 h-4" />,
-      content: PersonalTab // TODO: Create seperate PersonalTab component with member details form
+      content: PersonalTab
     },
     {
       id: "payment",
@@ -667,7 +798,7 @@ export default function MemberDetail() {
       id: "membership",
       label: "Membership",
       icon: <Users className="w-4 h-4" />,
-      content: <MemberMembershipTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member" } />
+      content: <MemberMembershipTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
     },
     {
       id: "classes",
@@ -719,6 +850,18 @@ export default function MemberDetail() {
     },
   ];
 
+  // FIXED: Better conditional rendering
+  if (!id) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Member ID Missing</h2>
+          <p className="text-muted-foreground">Unable to load member details.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <DetailPageTemplate
@@ -737,7 +880,7 @@ export default function MemberDetail() {
       badge={
         <StatusBadge
           status={memberDetails?.status === "Active" ? "success" : memberDetails?.status === "Inactive" ? "error" : "warning"}
-          label={memberDetails?.status.charAt(0).toUpperCase() + memberDetails?.status.slice(1)}
+          label={memberDetails?.status ? memberDetails.status.charAt(0).toUpperCase() + memberDetails.status.slice(1) : "Unknown"}
         />
       }
       tabs={tabs}
