@@ -31,9 +31,15 @@
     "attendance": "Attendance",
     "dailyAttendance": "Daily Attendance",
     "firstInOut": "First In/Out",
+    "calendar": "Calendar",
+    "bookings": "Bookings",
     "members": "Members",
+    "trainingPlans": "Training & Plans",
     "memberships": "Memberships",
     "classes": "Classes",
+    "personalTraining": "Personal Training",
+    "categories": "Categories",
+    "masterData": "Master Data",
     "dayPasses": "Day Passes",
     "receipts": "Receipts",
     "expenses": "Expenses",
@@ -42,8 +48,7 @@
     "branches": "Branches",
     "announcements": "Announcements",
     "fitrobitAI": "Fitrobit AI",
-    "settings": "Settings",
-    "calendar": "Calendar"
+    "settings": "Settings"
   },
   "dashboard": {
     "title": "Dashboard",
