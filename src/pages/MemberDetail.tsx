@@ -622,7 +622,7 @@ export default function MemberDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPage, setPaymentPage] = useState(1);
   const [paymentSearch, setPaymentSearch] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState(memberData.image);
+  const [avatarUrl, setAvatarUrl] = useState("https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const paymentsPerPage = 3;
@@ -736,15 +736,15 @@ export default function MemberDetail() {
     const doc = generateReceipt({
       receiptNo: payment.receiptNo,
       date: payment.date,
-      memberName: member.name,
-      memberId: member.memberId,
-      phoneNumber: member.phoneNumber,
-      email: member.email,
+      memberName: memberDetails?.name || "Unknown Member",
+      memberId: memberDetails?.memberId || undefined,
+      phoneNumber: memberDetails?.phoneNumber || undefined,
+      email: memberDetails?.email || undefined,
       description: payment.description,
       amount: payment.amount,
       paymentMethod: payment.method,
       status: payment.status,
-      branch: member.branch,
+      branch: memberDetails?.branch || undefined,
     }, size);
 
     if (size === "pos") {
@@ -1711,24 +1711,6 @@ export default function MemberDetail() {
       content: PersonalTab
     },
     {
-      id: "membership",
-      label: "Membership",
-      icon: <Users className="w-4 h-4" />,
-      content: <MemberMembershipTab memberId={member.memberId} memberName={member.name} />
-    },
-    {
-      id: "classes",
-      label: "Classes",
-      icon: <GraduationCap className="w-4 h-4" />,
-      content: <MemberClassesTab memberId={member.memberId} memberName={member.name} />
-    },
-    {
-      id: "pt",
-      label: "PT",
-      icon: <Target className="w-4 h-4" />,
-      content: <MemberPTTab memberId={member.memberId} memberName={member.name} />
-    },
-    {
       id: "payment",
       label: "Payment",
       icon: <CreditCard className="w-4 h-4" />,
@@ -1741,46 +1723,64 @@ export default function MemberDetail() {
       content: CalendarTab
     },
     {
-      id: "workout",
-      label: "Workout",
-      icon: <Dumbbell className="w-4 h-4" />,
-      content: <MemberWorkoutTab memberId={member.memberId} memberName={member.name} />
-    },
-    {
-      id: "diet",
-      label: "Diet",
-      icon: <Apple className="w-4 h-4" />,
-      content: <MemberDietTab memberId={member.memberId} memberName={member.name} />
-    },
-    {
       id: "status",
       label: "Status",
       icon: <CheckCircle2 className="w-4 h-4" />,
       content: StatusTab
     },
     {
+      id: "membership",
+      label: "Membership",
+      icon: <Users className="w-4 h-4" />,
+      content: <MemberMembershipTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member" } />
+    },
+    {
+      id: "classes",
+      label: "Classes",
+      icon: <GraduationCap className="w-4 h-4" />,
+      content: <MemberClassesTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
+    },
+    {
+      id: "pt",
+      label: "PT",
+      icon: <Target className="w-4 h-4" />,
+      content: <MemberPTTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
+    },
+    {
+      id: "workout",
+      label: "Workout",
+      icon: <Dumbbell className="w-4 h-4" />,
+      content: <MemberWorkoutTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
+    },
+    {
+      id: "diet",
+      label: "Diet",
+      icon: <Apple className="w-4 h-4" />,
+      content: <MemberDietTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
+    },
+    {
       id: "progress",
       label: "Progress",
       icon: <TrendingUp className="w-4 h-4" />,
-      content: <MemberProgressTab memberId={member.memberId} memberName={member.name} />
+      content: <MemberProgressTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
     },
     {
       id: "activity",
       label: "Activity",
       icon: <Activity className="w-4 h-4" />,
-      content: <MemberActivityTab memberId={member.memberId} memberName={member.name} />
+      content: <MemberActivityTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
     },
     {
       id: "emergency",
       label: "Emergency",
       icon: <AlertCircle className="w-4 h-4" />,
-      content: <MemberEmergencyTab memberId={member.memberId} memberName={member.name} />
+      content: <MemberEmergencyTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
     },
     {
       id: "documents",
       label: "Documents",
       icon: <FolderOpen className="w-4 h-4" />,
-      content: <MemberDocumentsTab memberId={member.memberId} memberName={member.name} />
+      content: <MemberDocumentsTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
     },
   ];
 
@@ -1794,7 +1794,7 @@ export default function MemberDetail() {
       avatar={
         <img
           src={avatarUrl}
-          alt={member.name}
+          alt={memberDetails?.name || "Unknown Member"}
           className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover border-2 border-border/50"
         />
       }
