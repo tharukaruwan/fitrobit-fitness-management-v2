@@ -131,18 +131,18 @@ const menuSections: MenuSection[] = [
       },
       {
         title: "Operations",
-        translate: "operations", 
+        translate: "nav.operations", 
         icon: Receipt,
         moduleId: "members",
         subItems: [
-          { title: "Day Passes", translate: "daypasses", path: "/day-passes", icon: Ticket, moduleId: "members" },
+          { title: "Day Passes", translate: "nav.dayPasses", path: "/day-passes", icon: Ticket, moduleId: "members" },
           { title: "Receipts", translate: "nav.receipts", path: "/receipts", icon: Receipt, moduleId: "payments" },
           { title: "Expenses", translate: "nav.expenses", path: "/expenses", icon: TrendingDown, moduleId: "expenses" },
         ],
       },
       {
         title: "Organization",
-        translate: "organization", 
+        translate: "nav.organization", 
         icon: Building2,
         moduleId: "employees",
         subItems: [
@@ -155,7 +155,7 @@ const menuSections: MenuSection[] = [
       },
       {
         title: "Tools",
-        translate: "tools", 
+        translate: "nav.tools", 
         icon: Radio,
         moduleId: "broadcasts",
         subItems: [
