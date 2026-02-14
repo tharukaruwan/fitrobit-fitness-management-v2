@@ -103,6 +103,8 @@ import {
   isAfter,
 } from "date-fns";
 import Request from "@/lib/api/client";
+import { MemberStatusTab } from "@/components/member/MemberStatusTab";
+import { MemberCalendarTab } from "@/components/member/MemberCalendarTab";
 
 // Zod validation schema
 const memberFormSchema = z.object({
@@ -195,13 +197,6 @@ interface ProgressMetric {
   unit: string;
 }
 
-const progressMetrics: ProgressMetric[] = [
-  { label: "Workouts This Month", current: 18, target: 20, unit: "sessions" },
-  { label: "Classes Attended", current: 8, target: 12, unit: "classes" },
-  { label: "Calories Burned", current: 15200, target: 20000, unit: "kcal" },
-  { label: "Active Days", current: 22, target: 25, unit: "days" },
-];
-
 interface AttendanceRecord {
   id: number;
   date: string;
@@ -210,14 +205,6 @@ interface AttendanceRecord {
   duration: string;
   activity: string;
 }
-
-const attendanceData: AttendanceRecord[] = [
-  { id: 1, date: "Dec 30, 2024", checkIn: "06:30 AM", checkOut: "08:15 AM", duration: "1h 45m", activity: "Strength Training" },
-  { id: 2, date: "Dec 28, 2024", checkIn: "07:00 AM", checkOut: "08:30 AM", duration: "1h 30m", activity: "Cardio" },
-  { id: 3, date: "Dec 27, 2024", checkIn: "06:45 AM", checkOut: "08:00 AM", duration: "1h 15m", activity: "HIIT Class" },
-  { id: 4, date: "Dec 25, 2024", checkIn: "08:00 AM", checkOut: "09:30 AM", duration: "1h 30m", activity: "Swimming" },
-  { id: 5, date: "Dec 24, 2024", checkIn: "06:30 AM", checkOut: "08:00 AM", duration: "1h 30m", activity: "Strength Training" },
-];
 
 const attendanceColumns: Column<AttendanceRecord>[] = [
   { key: "date", label: "Date", priority: "always" },
@@ -651,8 +638,6 @@ export default function MemberDetail() {
     queryFn: () => fetchMembers(id || ""),
   });
 
-  // In real app, fetch member by id
-  const member = memberData;
   const memberDetails = apiResponse ? mapApiMember(apiResponse) : null;
   useEffect(() => {
     if (memberDetails) {
@@ -1185,548 +1170,31 @@ export default function MemberDetail() {
     </div>
   );
 
-  // Status Tab (formerly Progress - shows current status and attendance)
-  const StatusTab = (
-    <div className="space-y-6">
-      <SectionHeader title="Monthly Goals" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {progressMetrics.map((metric, index) => (
-          <div
-            key={index}
-            className="bg-muted/30 rounded-lg p-4 border border-border/30"
-          >
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-card-foreground">{metric.label}</span>
-              <span className="text-xs text-muted-foreground">
-                {metric.current}/{metric.target} {metric.unit}
-              </span>
-            </div>
-            <Progress
-              value={(metric.current / metric.target) * 100}
-              className="h-2"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              {Math.round((metric.current / metric.target) * 100)}% completed
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <SectionHeader title="Recent Attendance" />
-      <ResponsiveTable
-        data={attendanceData}
-        columns={attendanceColumns}
-        keyExtractor={(item) => item.id}
-      />
-    </div>
-  );
-
-  // Calendar Tab - Member schedule view
-  const calendarMonthStart = startOfMonth(calendarMonth);
-  const calendarMonthEnd = endOfMonth(calendarMonth);
-  const calendarStart = startOfWeek(calendarMonthStart);
-  const calendarEnd = endOfWeek(calendarMonthEnd);
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-  const filteredMemberEvents = memberEvents.filter((event) => {
-    return calendarFilterType === "all" || event.type === calendarFilterType;
-  });
-
-  const getEventsForDay = (day: Date) => {
-    return filteredMemberEvents.filter((event) => isSameDay(event.start, day));
-  };
-
-  const handlePrevMonth = () => setCalendarMonth(subMonths(calendarMonth, 1));
-  const handleNextMonth = () => setCalendarMonth(addMonths(calendarMonth, 1));
-  const handleToday = () => setCalendarMonth(new Date());
-
-  const handleDateClick = (day: Date) => {
-    const dayEvents = getEventsForDay(day);
-    setSelectedCalendarDate(day);
-
-    if (dayEvents.length > 2) {
-      setDayEventsDate(day);
-      setShowDayEventsModal(true);
-    }
-  };
-
-  const handleEventClick = (event: MemberCalendarEvent, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setSelectedEvent(event);
-    setShowEventModal(true);
-    setShowDayEventsModal(false);
-  };
-
-  const handleAddTarget = () => {
-    if (!newTargetValue) return;
-    const cat = TARGET_CATEGORIES.find((c) => c.value === newTargetCategory)!;
-    const targetVal = parseFloat(newTargetValue);
-
-    const createTarget = (date: Date): MemberCalendarEvent => ({
-      id: `target-${Date.now()}-${date.getTime()}`,
-      title: `${cat.label}: ${targetVal.toLocaleString()} ${cat.unit}`,
-      start: date,
-      type: "target",
-      color: "bg-emerald-500",
-      targetCategory: newTargetCategory,
-      targetValue: targetVal,
-      targetUnit: cat.unit,
-      status: "scheduled",
-    });
-
-    const newTargets: MemberCalendarEvent[] = [createTarget(newTargetDate)];
-
-    // Repeat daily until date if set
-    if (newTargetRepeatUntil && isAfter(newTargetRepeatUntil, newTargetDate)) {
-      let d = addDays(newTargetDate, 1);
-      while (!isAfter(d, newTargetRepeatUntil)) {
-        newTargets.push(createTarget(new Date(d)));
-        d = addDays(d, 1);
-      }
-    }
-
-    setMemberEvents((prev) => [...prev, ...newTargets]);
-    setShowAddTarget(false);
-    setNewTargetValue("");
-    setNewTargetRepeatUntil(undefined);
-    toast({ title: "Target Added", description: `${newTargets.length} target${newTargets.length > 1 ? "s" : ""} created.` });
-  };
-
-  const handleLogTargetProgress = () => {
-    if (!selectedEvent || !editTargetActual) return;
-    const actual = parseFloat(editTargetActual);
-    const achieved = actual >= (selectedEvent.targetValue || 0);
-    setMemberEvents((prev) =>
-      prev.map((e) =>
-        e.id === selectedEvent.id
-          ? { ...e, actualValue: actual, status: achieved ? "completed" : "scheduled" }
-          : e
-      )
-    );
-    setSelectedEvent((prev) =>
-      prev ? { ...prev, actualValue: actual, status: achieved ? "completed" : "scheduled" } : prev
-    );
-    setShowLogProgress(false);
-    setEditTargetActual("");
-    toast({ title: achieved ? "Target Achieved! 🎉" : "Progress Logged" });
-  };
-
-  const handleDeleteTarget = (id: string) => {
-    setMemberEvents((prev) => prev.filter((e) => e.id !== id));
-    setShowEventModal(false);
-    setSelectedEvent(null);
-    toast({ title: "Target Deleted" });
-  };
-
-  const upcomingEvents = filteredMemberEvents
-    .filter((e) => e.start >= new Date() || isSameDay(e.start, new Date()))
-    .sort((a, b) => a.start.getTime() - b.start.getTime())
-    .slice(0, 5);
-
-  const CalendarTab = (
-    <div className="space-y-8">
-      {/* Event View Modal */}
-      <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{selectedEvent?.title}</DialogTitle>
-          </DialogHeader>
-          {selectedEvent && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className={cn("w-3 h-3 rounded-full", selectedEvent.color)} />
-                <span className="text-sm capitalize">{selectedEvent.type.replace("_", " ")}</span>
-                {selectedEvent.status && (
-                  <StatusBadge
-                    status={selectedEvent.status === "completed" ? "success" : selectedEvent.status === "scheduled" ? "info" : "error"}
-                    label={selectedEvent.status.charAt(0).toUpperCase() + selectedEvent.status.slice(1)}
-                  />
-                )}
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <CalendarIcon className="w-4 h-4" />
-                  <span>{format(selectedEvent.start, "EEEE, MMMM d, yyyy")}</span>
-                </div>
-                {selectedEvent.time && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span>{selectedEvent.time}</span>
-                  </div>
-                )}
-                {selectedEvent.instructor && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <User className="w-4 h-4" />
-                    <span>{selectedEvent.instructor}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Workout/Diet plan info */}
-              {(selectedEvent.type === "workout" || selectedEvent.type === "diet") && selectedEvent.description && (
-                <div className="pt-2 border-t">
-                  <p className="text-sm text-muted-foreground">{selectedEvent.description}</p>
-                </div>
-              )}
-
-              {/* Target-specific: progress section */}
-              {selectedEvent.type === "target" && selectedEvent.targetValue !== undefined && (
-                <div className="space-y-3 pt-2 border-t">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Target</span>
-                    <span className="font-medium">{selectedEvent.targetValue.toLocaleString()} {selectedEvent.targetUnit}</span>
-                  </div>
-                  {selectedEvent.actualValue !== undefined ? (
-                    <>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Actual</span>
-                        <span className="font-medium">{selectedEvent.actualValue.toLocaleString()} {selectedEvent.targetUnit}</span>
-                      </div>
-                      <Progress value={Math.min(100, (selectedEvent.actualValue / selectedEvent.targetValue) * 100)} className="h-2" />
-                      <p className="text-xs text-muted-foreground text-center">
-                        {Math.round((selectedEvent.actualValue / selectedEvent.targetValue) * 100)}% of target
-                      </p>
-                    </>
-                  ) : !showLogProgress ? (
-                    <Button size="sm" variant="outline" className="w-full" onClick={() => { setShowLogProgress(true); setEditTargetActual(""); }}>
-                      Log Progress
-                    </Button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder={`Actual ${selectedEvent.targetUnit}`}
-                        value={editTargetActual}
-                        onChange={(e) => setEditTargetActual(e.target.value)}
-                        className="h-9 flex-1"
-                      />
-                      <Button size="sm" className="h-9" onClick={handleLogTargetProgress} disabled={!editTargetActual}>
-                        Save
-                      </Button>
-                    </div>
-                  )}
-                  <Button size="sm" variant="destructive" className="w-full" onClick={() => handleDeleteTarget(selectedEvent.id)}>
-                    <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete Target
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Day Events Modal */}
-      <Dialog open={showDayEventsModal} onOpenChange={setShowDayEventsModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {dayEventsDate && format(dayEventsDate, "EEEE, MMMM d")}
-            </DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-2 pr-4">
-              {dayEventsDate && getEventsForDay(dayEventsDate).map((event) => (
-                <div
-                  key={event.id}
-                  onClick={() => handleEventClick(event)}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
-                >
-                  <div className={cn("w-1.5 h-10 rounded-full shrink-0", event.color)} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {event.time}
-                      {event.instructor && ` • ${event.instructor}`}
-                    </p>
-                  </div>
-                  {event.status === "completed" && (
-                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Filter by type */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <Button
-            variant={calendarFilterType === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCalendarFilterType("all")}
-          >
-            All
-          </Button>
-          {memberEventTypes.map((type) => (
-            <Button
-              key={type.value}
-              variant={calendarFilterType === type.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setCalendarFilterType(type.value)}
-              className="shrink-0"
-            >
-              <div className={cn("w-2 h-2 rounded-full mr-2", type.color)} />
-              {type.label}
-            </Button>
-          ))}
-        </div>
-        <Button size="sm" onClick={() => setShowAddTarget(true)}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Add Target
-        </Button>
-      </div>
-
-      {/* Legend */}
-      <Card>
-        <CardContent className="py-2 px-4">
-          <div className="flex gap-4 overflow-x-auto">
-            {memberEventTypes.map((type) => (
-              <div key={type.value} className="flex items-center gap-2 shrink-0">
-                <div className={cn("w-2.5 h-2.5 rounded-full", type.color)} />
-                <span className="text-xs text-muted-foreground">{type.label}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Calendar Grid */}
-      <Card>
-        <CardContent className="p-2 sm:p-4">
-          {/* Calendar Header */}
-          <div className="flex items-center justify-between mb-4 gap-2">
-            <h3 className="text-base font-semibold truncate">
-              {format(calendarMonth, "MMMM yyyy")}
-            </h3>
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              <Button variant="outline" size="sm" onClick={handleToday} className="hidden sm:flex">
-                Today
-              </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-            {/* Weekday Headers */}
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div
-                key={day}
-                className="bg-muted p-1.5 sm:p-2 text-center text-xs sm:text-sm font-medium text-muted-foreground"
-              >
-                <span className="hidden sm:inline">{day}</span>
-                <span className="sm:hidden">{day.charAt(0)}</span>
-              </div>
-            ))}
-
-            {/* Calendar Days */}
-            {calendarDays.map((day) => {
-              const dayEvents = getEventsForDay(day);
-              const isToday = isSameDay(day, new Date());
-              const isCurrentMonth = isSameMonth(day, calendarMonth);
-              const isSelected = selectedCalendarDate && isSameDay(day, selectedCalendarDate);
-              const hasMoreEvents = dayEvents.length > 2;
-
-              return (
-                <div
-                  key={day.toISOString()}
-                  onClick={() => handleDateClick(day)}
-                  className={cn(
-                    "min-h-[60px] sm:min-h-[80px] bg-card p-1 cursor-pointer transition-colors hover:bg-muted/50",
-                    !isCurrentMonth && "bg-muted/30 text-muted-foreground",
-                    isSelected && "ring-2 ring-primary ring-inset"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "text-xs sm:text-sm font-medium mb-0.5 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full mx-auto sm:mx-0",
-                      isToday && "bg-primary text-primary-foreground"
-                    )}
-                  >
-                    {format(day, "d")}
-                  </div>
-
-                  {/* Events - Show cards on desktop */}
-                  <div className="hidden sm:block space-y-0.5">
-                    {dayEvents.slice(0, 2).map((event) => (
-                      <div
-                        key={event.id}
-                        onClick={(e) => handleEventClick(event, e)}
-                        className={cn(
-                          "text-[10px] p-0.5 rounded truncate text-white cursor-pointer hover:opacity-80",
-                          event.color
-                        )}
-                      >
-                        {event.title}
-                      </div>
-                    ))}
-                    {hasMoreEvents && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDayEventsDate(day);
-                          setShowDayEventsModal(true);
-                        }}
-                        className="text-[10px] text-primary font-medium hover:underline w-full text-left px-0.5"
-                      >
-                        +{dayEvents.length - 2} more
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Mobile: Show event dots */}
-                  <div className="sm:hidden flex flex-wrap gap-0.5 justify-center mt-1">
-                    {dayEvents.slice(0, 4).map((event) => (
-                      <div
-                        key={event.id}
-                        className={cn("w-1.5 h-1.5 rounded-full", event.color)}
-                      />
-                    ))}
-                    {dayEvents.length > 4 && (
-                      <span className="text-[8px] text-muted-foreground">+{dayEvents.length - 4}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Upcoming Events */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="font-semibold mb-4">Upcoming Schedule</h3>
-          <div className="space-y-2">
-            {upcomingEvents.length > 0 ? (
-              upcomingEvents.map((event) => (
-                <div
-                  key={event.id}
-                  onClick={() => handleEventClick(event)}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
-                >
-                  <div className={cn("w-1.5 h-10 rounded-full shrink-0", event.color)} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{event.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {format(event.start, "EEE, MMM d")}
-                      {event.time && ` • ${event.time}`}
-                      {event.instructor && ` • ${event.instructor}`}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-muted-foreground text-sm">No upcoming events</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Add Target Sheet */}
-      <QuickAddSheet
-        open={showAddTarget}
-        onOpenChange={setShowAddTarget}
-        title="Add Target"
-        description="Set a daily target for this member. Optionally repeat until a date."
-        onSubmit={handleAddTarget}
-        submitLabel="Add Target"
-      >
-        <div>
-          <Label className="text-xs text-muted-foreground">Date</Label>
-          <Popover open={targetCalOpen} onOpenChange={setTargetCalOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal mt-1.5">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(newTargetDate, "MMM d, yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={newTargetDate} onSelect={(d) => { if (d) { setNewTargetDate(d); setTargetCalOpen(false); } }} />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Target Type</Label>
-          <Select value={newTargetCategory} onValueChange={(v) => setNewTargetCategory(v as TargetCategory)}>
-            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {TARGET_CATEGORIES.map((c) => (
-                <SelectItem key={c.value} value={c.value}>{c.label} ({c.unit})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">
-            Target Value ({TARGET_CATEGORIES.find((c) => c.value === newTargetCategory)?.unit})
-          </Label>
-          <Input
-            type="number"
-            value={newTargetValue}
-            onChange={(e) => setNewTargetValue(e.target.value)}
-            placeholder="e.g. 10000"
-            className="mt-1.5"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Repeat Until (optional)</Label>
-          <Popover open={repeatCalOpen} onOpenChange={setRepeatCalOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal mt-1.5">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {newTargetRepeatUntil ? format(newTargetRepeatUntil, "MMM d, yyyy") : "No repeat"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={newTargetRepeatUntil}
-                onSelect={(d) => { if (d) { setNewTargetRepeatUntil(d); setRepeatCalOpen(false); } }}
-                disabled={(date) => !isAfter(date, newTargetDate)}
-              />
-            </PopoverContent>
-          </Popover>
-          {newTargetRepeatUntil && (
-            <Button variant="ghost" size="sm" className="mt-1 text-xs" onClick={() => setNewTargetRepeatUntil(undefined)}>
-              <X className="w-3 h-3 mr-1" /> Clear repeat
-            </Button>
-          )}
-        </div>
-      </QuickAddSheet>
-    </div>
-  );
 
   const tabs: DetailTab[] = [
     {
       id: "personal",
       label: "Personal",
       icon: <User className="w-4 h-4" />,
-      content: PersonalTab
+      content: PersonalTab // TODO: Create seperate PersonalTab component with member details form
     },
     {
       id: "payment",
       label: "Payment",
       icon: <CreditCard className="w-4 h-4" />,
-      content: PaymentTab
+      content: PaymentTab // TODO: Create seperate PaymentTab component with payment history and add payment form
     },
     {
       id: "calendar",
       label: "Calendar",
       icon: <CalendarIcon className="w-4 h-4" />,
-      content: CalendarTab
+      content: <MemberCalendarTab initialEvents={generateMemberEvents()} />
     },
     {
       id: "status",
       label: "Status",
       icon: <CheckCircle2 className="w-4 h-4" />,
-      content: StatusTab
+      content: <MemberStatusTab id={id} />
     },
     {
       id: "membership",
