@@ -14,9 +14,7 @@ import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-t
 import { FilterBar, FilterConfig } from "@/components/ui/filter-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -80,28 +78,6 @@ import { MemberClassesTab } from "@/components/member/MemberClassesTab";
 import { MemberPTTab } from "@/components/member/MemberPTTab";
 import { MemberEmergencyTab } from "@/components/member/MemberEmergencyTab";
 import { MemberDocumentsTab } from "@/components/member/MemberDocumentsTab";
-import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
-import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  addMonths,
-  subMonths,
-  startOfWeek,
-  endOfWeek,
-  addDays,
-  isAfter,
-} from "date-fns";
 import Request from "@/lib/api/client";
 import { MemberStatusTab } from "@/components/member/MemberStatusTab";
 import { MemberCalendarTab } from "@/components/member/MemberCalendarTab";
@@ -123,32 +99,6 @@ const memberFormSchema = z.object({
 });
 
 type MemberFormValues = z.infer<typeof memberFormSchema>;
-
-// Sample member data - in real app, fetch by ID
-const memberData = {
-  id: 1,
-  memberId: "MEM-001",
-  name: "John Smith",
-  image: "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
-  email: "john.smith@email.com",
-  phoneNumber: "+1 234 567 890",
-  membership: "Premium",
-  createdAt: new Date(2024, 0, 15), // Jan 15, 2024
-  expiryDate: new Date(2025, 0, 15), // Jan 15, 2025
-  status: "active" as const,
-  branch: "Downtown",
-  birthday: "12-31",
-  address: "123 Main Street, New York, NY 10001",
-  emergencyContact: "+1 234 567 999",
-  nic: "123456789",
-  remark: "Good member",
-  gender: "Male",
-  dateOfBirth: new Date(1992, 5, 15), // June 15, 1992
-  weight: "75 kg",
-  height: "178 cm",
-  goal: "Build Muscle",
-  trainer: "Mike Johnson",
-};
 
 // Sample payment data
 interface Payment {
@@ -188,236 +138,6 @@ const paymentColumns: Column<Payment>[] = [
     )
   },
 ];
-
-// Sample progress data
-interface ProgressMetric {
-  label: string;
-  current: number;
-  target: number;
-  unit: string;
-}
-
-interface AttendanceRecord {
-  id: number;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  duration: string;
-  activity: string;
-}
-
-const attendanceColumns: Column<AttendanceRecord>[] = [
-  { key: "date", label: "Date", priority: "always" },
-  { key: "checkIn", label: "Check In", priority: "always" },
-  { key: "checkOut", label: "Check Out", priority: "md" },
-  { key: "duration", label: "Duration", priority: "lg" },
-  { key: "activity", label: "Activity", priority: "md" },
-];
-
-// Target type definitions
-const TARGET_CATEGORIES = [
-  { value: "sleep", label: "Sleep", unit: "hours" },
-  { value: "steps", label: "Step Count", unit: "steps" },
-  { value: "water", label: "Water Intake", unit: "liters" },
-  { value: "calories_burn", label: "Calories Burn", unit: "kcal" },
-  { value: "workout", label: "Workout Duration", unit: "minutes" },
-] as const;
-
-type TargetCategory = typeof TARGET_CATEGORIES[number]["value"];
-
-// Member calendar event types
-interface MemberCalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  type: "attendance" | "pt_session" | "class" | "target" | "workout" | "diet";
-  color: string;
-  description?: string;
-  time?: string;
-  instructor?: string;
-  status?: "completed" | "scheduled" | "cancelled";
-  // Target-specific fields
-  targetCategory?: TargetCategory;
-  targetValue?: number;
-  actualValue?: number;
-  targetUnit?: string;
-}
-
-const memberEventTypes = [
-  { value: "attendance", label: "Attendance", color: "bg-primary" },
-  { value: "pt_session", label: "PT Session", color: "bg-warning" },
-  { value: "class", label: "Class", color: "bg-purple-500" },
-  { value: "target", label: "Target", color: "bg-emerald-500" },
-  { value: "workout", label: "Workout Plan", color: "bg-orange-500" },
-  { value: "diet", label: "Diet Plan", color: "bg-teal-500" },
-];
-
-const getEventColorClass = (type: string) => {
-  return memberEventTypes.find((t) => t.value === type)?.color || "bg-muted-foreground";
-};
-
-// Generate sample member events
-const generateMemberEvents = (): MemberCalendarEvent[] => {
-  const today = new Date();
-  const events: MemberCalendarEvent[] = [];
-
-  // Past attendances
-  for (let i = 1; i <= 15; i++) {
-    const pastDate = new Date(today);
-    pastDate.setDate(today.getDate() - i * 2);
-    events.push({
-      id: `att-${i}`,
-      title: "Gym Visit",
-      start: pastDate,
-      type: "attendance",
-      color: "bg-primary",
-      time: "06:30 AM - 08:00 AM",
-      status: "completed",
-    });
-  }
-
-  // Scheduled PT sessions
-  events.push(
-    {
-      id: "pt-1",
-      title: "PT Session",
-      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
-      type: "pt_session",
-      color: "bg-warning",
-      time: "10:00 AM",
-      instructor: "Mike Johnson",
-      status: "scheduled",
-    },
-    {
-      id: "pt-2",
-      title: "PT Session",
-      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 4),
-      type: "pt_session",
-      color: "bg-warning",
-      time: "10:00 AM",
-      instructor: "Mike Johnson",
-      status: "scheduled",
-    },
-    {
-      id: "pt-3",
-      title: "PT Session",
-      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3),
-      type: "pt_session",
-      color: "bg-warning",
-      time: "10:00 AM",
-      instructor: "Mike Johnson",
-      status: "completed",
-    }
-  );
-
-  // Scheduled classes
-  events.push(
-    {
-      id: "class-1",
-      title: "HIIT Class",
-      start: today,
-      type: "class",
-      color: "bg-purple-500",
-      time: "07:00 AM",
-      instructor: "Sarah Wilson",
-      status: "scheduled",
-    },
-    {
-      id: "class-2",
-      title: "Yoga Session",
-      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2),
-      type: "class",
-      color: "bg-purple-500",
-      time: "08:00 AM",
-      instructor: "Emma Davis",
-      status: "scheduled",
-    },
-    {
-      id: "class-3",
-      title: "Spin Class",
-      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5),
-      type: "class",
-      color: "bg-purple-500",
-      time: "06:00 PM",
-      instructor: "Lisa Park",
-      status: "completed",
-    }
-  );
-
-  // Sample targets
-  for (let i = -5; i <= 5; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    events.push({
-      id: `target-sleep-${i}`,
-      title: "Sleep: 8 hours",
-      start: d,
-      type: "target",
-      color: "bg-emerald-500",
-      targetCategory: "sleep",
-      targetValue: 8,
-      targetUnit: "hours",
-      actualValue: i < 0 ? parseFloat((6 + Math.random() * 3).toFixed(1)) : undefined,
-      status: i < 0 ? ((6 + Math.random() * 3) >= 8 ? "completed" : "scheduled") : "scheduled",
-    });
-    events.push({
-      id: `target-steps-${i}`,
-      title: "Steps: 10,000",
-      start: d,
-      type: "target",
-      color: "bg-emerald-500",
-      targetCategory: "steps",
-      targetValue: 10000,
-      targetUnit: "steps",
-      actualValue: i < 0 ? Math.floor(5000 + Math.random() * 10000) : undefined,
-      status: i < 0 ? ((5000 + Math.random() * 10000) >= 10000 ? "completed" : "scheduled") : "scheduled",
-    });
-  }
-
-  // Workout plan events (show each day the plan is active)
-  const workoutStart = new Date(today);
-  workoutStart.setDate(today.getDate() - 10);
-  const workoutEnd = new Date(today);
-  workoutEnd.setDate(today.getDate() + 20);
-  let wd = new Date(workoutStart);
-  while (wd <= workoutEnd) {
-    events.push({
-      id: `workout-${wd.getTime()}`,
-      title: "Strength Training Plan",
-      start: new Date(wd),
-      type: "workout",
-      color: "bg-orange-500",
-      description: `${format(workoutStart, "MMM d")} – ${format(workoutEnd, "MMM d")} • Assigned by Mike Johnson`,
-      status: wd < today ? "completed" : "scheduled",
-    });
-    wd = new Date(wd);
-    wd.setDate(wd.getDate() + 1);
-  }
-
-  // Diet plan events
-  const dietStart = new Date(today);
-  dietStart.setDate(today.getDate() - 7);
-  const dietEnd = new Date(today);
-  dietEnd.setDate(today.getDate() + 23);
-  let dd = new Date(dietStart);
-  while (dd <= dietEnd) {
-    events.push({
-      id: `diet-${dd.getTime()}`,
-      title: "High Protein Diet",
-      start: new Date(dd),
-      type: "diet",
-      color: "bg-teal-500",
-      description: `${format(dietStart, "MMM d")} – ${format(dietEnd, "MMM d")} • 2,500 kcal/day`,
-      status: dd < today ? "completed" : "scheduled",
-    });
-    dd = new Date(dd);
-    dd.setDate(dd.getDate() + 1);
-  }
-
-  return events;
-};
-
-const ITEMS_PER_PAGE = 8;
 
 // Common Types
 export interface Duration {
@@ -614,24 +334,6 @@ export default function MemberDetail() {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const paymentsPerPage = 3;
 
-  // Calendar state
-  const [memberEvents, setMemberEvents] = useState<MemberCalendarEvent[]>(generateMemberEvents);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(new Date());
-  const [showDayEventsModal, setShowDayEventsModal] = useState(false);
-  const [dayEventsDate, setDayEventsDate] = useState<Date | null>(null);
-  const [calendarFilterType, setCalendarFilterType] = useState("all");
-  const [selectedEvent, setSelectedEvent] = useState<MemberCalendarEvent | null>(null);
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [showAddTarget, setShowAddTarget] = useState(false);
-  const [newTargetCategory, setNewTargetCategory] = useState<TargetCategory>("sleep");
-  const [newTargetValue, setNewTargetValue] = useState("");
-  const [newTargetDate, setNewTargetDate] = useState<Date>(new Date());
-  const [newTargetRepeatUntil, setNewTargetRepeatUntil] = useState<Date | undefined>(undefined);
-  const [targetCalOpen, setTargetCalOpen] = useState(false);
-  const [repeatCalOpen, setRepeatCalOpen] = useState(false);
-  const [editTargetActual, setEditTargetActual] = useState("");
-  const [showLogProgress, setShowLogProgress] = useState(false);
 
   const { data: apiResponse, isLoading, refetch, error } = useQuery({
     queryKey: ["members-list", id],
@@ -1188,7 +890,7 @@ export default function MemberDetail() {
       id: "calendar",
       label: "Calendar",
       icon: <CalendarIcon className="w-4 h-4" />,
-      content: <MemberCalendarTab initialEvents={generateMemberEvents()} />
+      content: <MemberCalendarTab />
     },
     {
       id: "status",

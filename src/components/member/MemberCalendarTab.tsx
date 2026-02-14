@@ -2,7 +2,7 @@ import * as React from "react";
 import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isAfter } from "date-fns";
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, 
-  Trash2, ChevronRight as ChevronRightIcon
+  Trash2, ChevronRight as ChevronRightIcon, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
 import { cn } from "@/lib/utils";
 
-// --- Internal Constants ---
+// --- Types & Constants ---
 const TARGET_CATEGORIES = [
   { value: "sleep", label: "Sleep", unit: "hours" },
   { value: "steps", label: "Step Count", unit: "steps" },
@@ -53,13 +53,15 @@ const memberEventTypes = [
   { value: "diet", label: "Diet Plan", color: "bg-teal-500" },
 ];
 
-export function MemberCalendarTab({ initialEvents }: { initialEvents: MemberCalendarEvent[] }) {
-  const [events, setEvents] = React.useState<MemberCalendarEvent[]>(initialEvents);
+export function MemberCalendarTab() {
+  // --- State Management ---
+  const [events, setEvents] = React.useState<MemberCalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [calendarMonth, setCalendarMonth] = React.useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = React.useState<Date>(new Date());
   const [calendarFilterType, setCalendarFilterType] = React.useState("all");
   
-  // Modals
+  // UI State
   const [showEventModal, setShowEventModal] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<MemberCalendarEvent | null>(null);
   const [showAddTarget, setShowAddTarget] = React.useState(false);
@@ -72,7 +74,28 @@ export function MemberCalendarTab({ initialEvents }: { initialEvents: MemberCale
   const [editTargetActual, setEditTargetActual] = React.useState("");
   const [targetCalOpen, setTargetCalOpen] = React.useState(false);
 
-  // Logic Helpers
+  // --- API Integration Point ---
+  React.useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    setIsLoading(true);
+    try {
+      // simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // REPLACE THIS with: const response = await fetch('/api/events');
+      const data = generateSampleData(); 
+      setEvents(data);
+    } catch (error) {
+      console.error("Failed to fetch events", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- Logic Helpers ---
   const getEventsForDay = (date: Date) => {
     return events.filter(event => 
       isSameDay(event.start, date) && 
@@ -88,10 +111,10 @@ export function MemberCalendarTab({ initialEvents }: { initialEvents: MemberCale
     setShowEventModal(true);
   };
 
-  const handleAddTarget = () => {
+  const handleAddTarget = async () => {
     const category = TARGET_CATEGORIES.find(c => c.value === newTargetCategory);
-    const newEvent: MemberCalendarEvent = {
-      id: Math.random().toString(),
+    const newTarget: MemberCalendarEvent = {
+      id: Math.random().toString(), // API will provide real ID
       title: `${category?.label}: ${newTargetValue}`,
       start: newTargetDate,
       type: "target",
@@ -101,11 +124,14 @@ export function MemberCalendarTab({ initialEvents }: { initialEvents: MemberCale
       targetUnit: category?.unit,
       status: "scheduled"
     };
-    setEvents([...events, newEvent]);
+
+    // OPTIONAL: API POST here
+    setEvents(prev => [...prev, newTarget]);
     setShowAddTarget(false);
+    setNewTargetValue("");
   };
 
-  // Calendar Grid Logic
+  // --- Calendar Grid Calculation ---
   const start = startOfWeek(startOfMonth(calendarMonth));
   const end = endOfWeek(endOfMonth(calendarMonth));
   const calendarDays = [];
@@ -113,6 +139,15 @@ export function MemberCalendarTab({ initialEvents }: { initialEvents: MemberCale
   while (curr <= end) { calendarDays.push(curr); curr = addDays(curr, 1); }
 
   const selectedDayEvents = getEventsForDay(selectedCalendarDate);
+
+  if (isLoading) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Loading your schedule...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -215,13 +250,13 @@ export function MemberCalendarTab({ initialEvents }: { initialEvents: MemberCale
                   )}>
                     {format(day, "d")}
                   </div>
-                  <div className="space-y-1">
-                    {dayEvents.slice(0, 2).map(e => (
-                      <div key={e.id} onClick={(ev) => handleEventClick(e, ev)} className={cn("text-[10px] px-2 py-1 rounded-md truncate text-white font-medium shadow-sm", e.color)}>
+                  <div className="space-y-1.5">
+                    {dayEvents.slice(0, 3).map(e => (
+                      <div key={e.id} onClick={(ev) => handleEventClick(e, ev)} className={cn("text-[10px] px-2 py-1 rounded-lg truncate text-white font-bold shadow-sm", e.color)}>
                         {e.title}
                       </div>
                     ))}
-                    {dayEvents.length > 2 && <div className="text-[9px] text-muted-foreground px-1 font-medium">+{dayEvents.length - 2} more</div>}
+                    {dayEvents.length > 3 && <div className="text-[9px] text-muted-foreground font-bold pl-1">+{dayEvents.length - 3} more</div>}
                   </div>
                 </div>
               );
@@ -305,3 +340,163 @@ export function MemberCalendarTab({ initialEvents }: { initialEvents: MemberCale
     </div>
   );
 }
+
+const generateSampleData = (): MemberCalendarEvent[] => {
+  const today = new Date();
+  const events: MemberCalendarEvent[] = [];
+
+  // Past attendances
+  for (let i = 1; i <= 15; i++) {
+    const pastDate = new Date(today);
+    pastDate.setDate(today.getDate() - i * 2);
+    events.push({
+      id: `att-${i}`,
+      title: "Gym Visit",
+      start: pastDate,
+      type: "attendance",
+      color: "bg-primary",
+      time: "06:30 AM - 08:00 AM",
+      status: "completed",
+    });
+  }
+
+  // Scheduled PT sessions
+  events.push(
+    {
+      id: "pt-1",
+      title: "PT Session",
+      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+      type: "pt_session",
+      color: "bg-warning",
+      time: "10:00 AM",
+      instructor: "Mike Johnson",
+      status: "scheduled",
+    },
+    {
+      id: "pt-2",
+      title: "PT Session",
+      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 4),
+      type: "pt_session",
+      color: "bg-warning",
+      time: "10:00 AM",
+      instructor: "Mike Johnson",
+      status: "scheduled",
+    },
+    {
+      id: "pt-3",
+      title: "PT Session",
+      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3),
+      type: "pt_session",
+      color: "bg-warning",
+      time: "10:00 AM",
+      instructor: "Mike Johnson",
+      status: "completed",
+    }
+  );
+
+  // Scheduled classes
+  events.push(
+    {
+      id: "class-1",
+      title: "HIIT Class",
+      start: today,
+      type: "class",
+      color: "bg-purple-500",
+      time: "07:00 AM",
+      instructor: "Sarah Wilson",
+      status: "scheduled",
+    },
+    {
+      id: "class-2",
+      title: "Yoga Session",
+      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2),
+      type: "class",
+      color: "bg-purple-500",
+      time: "08:00 AM",
+      instructor: "Emma Davis",
+      status: "scheduled",
+    },
+    {
+      id: "class-3",
+      title: "Spin Class",
+      start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5),
+      type: "class",
+      color: "bg-purple-500",
+      time: "06:00 PM",
+      instructor: "Lisa Park",
+      status: "completed",
+    }
+  );
+
+  // Sample targets
+  for (let i = -5; i <= 5; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    events.push({
+      id: `target-sleep-${i}`,
+      title: "Sleep: 8 hours",
+      start: d,
+      type: "target",
+      color: "bg-emerald-500",
+      targetCategory: "sleep",
+      targetValue: 8,
+      targetUnit: "hours",
+      actualValue: i < 0 ? parseFloat((6 + Math.random() * 3).toFixed(1)) : undefined,
+      status: i < 0 ? ((6 + Math.random() * 3) >= 8 ? "completed" : "scheduled") : "scheduled",
+    });
+    events.push({
+      id: `target-steps-${i}`,
+      title: "Steps: 10,000",
+      start: d,
+      type: "target",
+      color: "bg-emerald-500",
+      targetCategory: "steps",
+      targetValue: 10000,
+      targetUnit: "steps",
+      actualValue: i < 0 ? Math.floor(5000 + Math.random() * 10000) : undefined,
+      status: i < 0 ? ((5000 + Math.random() * 10000) >= 10000 ? "completed" : "scheduled") : "scheduled",
+    });
+  }
+
+  // Workout plan events (show each day the plan is active)
+  const workoutStart = new Date(today);
+  workoutStart.setDate(today.getDate() - 10);
+  const workoutEnd = new Date(today);
+  workoutEnd.setDate(today.getDate() + 20);
+  let wd = new Date(workoutStart);
+  while (wd <= workoutEnd) {
+    events.push({
+      id: `workout-${wd.getTime()}`,
+      title: "Strength Training Plan",
+      start: new Date(wd),
+      type: "workout",
+      color: "bg-orange-500",
+      description: `${format(workoutStart, "MMM d")} – ${format(workoutEnd, "MMM d")} • Assigned by Mike Johnson`,
+      status: wd < today ? "completed" : "scheduled",
+    });
+    wd = new Date(wd);
+    wd.setDate(wd.getDate() + 1);
+  }
+
+  // Diet plan events
+  const dietStart = new Date(today);
+  dietStart.setDate(today.getDate() - 7);
+  const dietEnd = new Date(today);
+  dietEnd.setDate(today.getDate() + 23);
+  let dd = new Date(dietStart);
+  while (dd <= dietEnd) {
+    events.push({
+      id: `diet-${dd.getTime()}`,
+      title: "High Protein Diet",
+      start: new Date(dd),
+      type: "diet",
+      color: "bg-teal-500",
+      description: `${format(dietStart, "MMM d")} – ${format(dietEnd, "MMM d")} • 2,500 kcal/day`,
+      status: dd < today ? "completed" : "scheduled",
+    });
+    dd = new Date(dd);
+    dd.setDate(dd.getDate() + 1);
+  }
+
+  return events;
+};
