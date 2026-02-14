@@ -66,13 +66,13 @@ export function MemberPaymentsTab({ id }: MemberPaymentsTabProps) {
       receiptNo: payment.receiptNo,
       date: payment.date,
       memberName: "Unknown Member",
-      memberId: "memberDetails?.memberId",
-      email: "memberDetails?.email",
+      memberId: "N/A",
+      email: "N/A",
       description: payment.description,
       amount: payment.amount,
       paymentMethod: payment.method,
       status: payment.status,
-      branch: "memberDetails?.branch",
+      branch: "Main Branch",
     }, size);
 
     if (size === "pos") {
@@ -85,13 +85,12 @@ export function MemberPaymentsTab({ id }: MemberPaymentsTabProps) {
     }
   };
 
-  // --- Table Configuration ---
   const paymentColumns: Column<Payment>[] = [
     { key: "receiptNo", label: "Receipt #", priority: "md" },
     { key: "date", label: "Date", priority: "always" },
     { key: "description", label: "Description", priority: "md" },
     { key: "amount", label: "Amount", priority: "always", render: (val) => <span className="font-bold text-foreground">{val}</span> },
-    { key: "method", label: "Method", priority: "lg" }, // Restored Method Column
+    { key: "method", label: "Method", priority: "lg" },
     {
       key: "status",
       label: "Status",
@@ -167,7 +166,7 @@ export function MemberPaymentsTab({ id }: MemberPaymentsTabProps) {
                 <Printer className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl">
+            <DropdownMenuContent align="end" className="rounded-lg">
               <DropdownMenuItem onClick={() => handlePrintReceipt(item, "pos")}>
                 <Printer className="h-4 h-4 mr-2" /> POS (80mm)
               </DropdownMenuItem>
@@ -192,10 +191,10 @@ export function MemberPaymentsTab({ id }: MemberPaymentsTabProps) {
   );
 }
 
-// Helper component for summary cards
 function CardSummary({ label, value, icon, color = "text-foreground" }: { label: string, value: string, icon: React.ReactNode, color?: string }) {
   return (
-    <div className="bg-muted/30 rounded-2xl p-4 border border-border/50 shadow-sm">
+    /* Changed rounded-2xl to rounded-lg to match original styling */
+    <div className="bg-muted/30 rounded-lg p-4 border border-border/50 shadow-sm">
       <div className="flex justify-between items-start mb-2">
         <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{label}</p>
         {icon}

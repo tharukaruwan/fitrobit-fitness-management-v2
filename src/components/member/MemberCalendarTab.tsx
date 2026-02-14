@@ -1,7 +1,7 @@
 import * as React from "react";
 import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths } from "date-fns";
-import { 
-  ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, 
+import {
+  ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock,
   Trash2, ChevronRight as ChevronRightIcon, Loader2, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,12 +59,12 @@ export function MemberCalendarTab() {
   const [calendarMonth, setCalendarMonth] = React.useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = React.useState<Date>(new Date());
   const [calendarFilterType, setCalendarFilterType] = React.useState("all");
-  
+
   const [showEventModal, setShowEventModal] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<MemberCalendarEvent | null>(null);
   const [showAddTarget, setShowAddTarget] = React.useState(false);
   const [showLogProgress, setShowLogProgress] = React.useState(false);
-  
+
   const [newTargetCategory, setNewTargetCategory] = React.useState<TargetCategory>("sleep");
   const [newTargetValue, setNewTargetValue] = React.useState("");
   const [newTargetDate, setNewTargetDate] = React.useState<Date>(new Date());
@@ -77,14 +77,14 @@ export function MemberCalendarTab() {
     setIsLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
-      const data = generateSampleData(); 
+      const data = generateSampleData();
       setEvents(data);
     } catch (error) { console.error(error); } finally { setIsLoading(false); }
   };
 
   const getEventsForDay = (date: Date) => {
-    return events.filter(event => 
-      isSameDay(event.start, date) && 
+    return events.filter(event =>
+      isSameDay(event.start, date) &&
       (calendarFilterType === "all" || event.type === calendarFilterType)
     );
   };
@@ -134,9 +134,9 @@ export function MemberCalendarTab() {
 
   return (
     <div className="space-y-6">
-      {/* 1. Detail Modal */}
+      {/* 1. Detail Modal - Fixed Radius */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader><DialogTitle>{selectedEvent?.title}</DialogTitle></DialogHeader>
           {selectedEvent && (
             <div className="space-y-4">
@@ -153,11 +153,11 @@ export function MemberCalendarTab() {
                 <div className="space-y-4 pt-2">
                   <div className="flex justify-between text-sm"><span>Target Value:</span> <b>{selectedEvent.targetValue} {selectedEvent.targetUnit}</b></div>
                   {!showLogProgress ? (
-                    <Button variant="outline" className="w-full rounded-xl" onClick={() => setShowLogProgress(true)}>Log Progress</Button>
+                    <Button variant="outline" className="w-full rounded-lg" onClick={() => setShowLogProgress(true)}>Log Progress</Button>
                   ) : (
                     <div className="flex gap-2">
-                      <Input type="number" className="rounded-xl" placeholder="Value" value={editTargetActual} onChange={(e) => setEditTargetActual(e.target.value)} />
-                      <Button className="rounded-xl" onClick={() => setShowEventModal(false)}>Save</Button>
+                      <Input type="number" className="rounded-lg" placeholder="Value" value={editTargetActual} onChange={(e) => setEditTargetActual(e.target.value)} />
+                      <Button className="rounded-lg" onClick={() => setShowEventModal(false)}>Save</Button>
                     </div>
                   )}
                 </div>
@@ -167,32 +167,46 @@ export function MemberCalendarTab() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. Filters */}
+      {/* 2. Filters - Changed rounded-full to rounded-lg */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          <Button variant={calendarFilterType === "all" ? "default" : "outline"} size="sm" className="rounded-full" onClick={() => setCalendarFilterType("all")}>All</Button>
+          <Button
+            variant={calendarFilterType === "all" ? "default" : "outline"}
+            size="sm"
+            className="rounded-lg"
+            onClick={() => setCalendarFilterType("all")}
+          >
+            All
+          </Button>
           {memberEventTypes.map(t => (
-            <Button key={t.value} variant={calendarFilterType === t.value ? "default" : "outline"} size="sm" className="rounded-full shrink-0" onClick={() => setCalendarFilterType(t.value)}>
+            <Button
+              key={t.value}
+              variant={calendarFilterType === t.value ? "default" : "outline"}
+              size="sm"
+              className="rounded-lg shrink-0"
+              onClick={() => setCalendarFilterType(t.value)}
+            >
               <div className={cn("w-2 h-2 rounded-full mr-2", t.color)} /> {t.label}
             </Button>
           ))}
         </div>
-        <Button size="sm" onClick={() => setShowAddTarget(true)} className="rounded-xl"><Plus className="w-4 h-4 mr-1" /> Add Target</Button>
+        <Button size="sm" onClick={() => setShowAddTarget(true)} className="rounded-lg"><Plus className="w-4 h-4 mr-1" /> Add Target</Button>
       </div>
 
-      {/* 3. Calendar Grid (With Adaptive Dots) */}
-      <Card className="rounded-2xl overflow-hidden shadow-sm border-muted">
+      {/* 3. Calendar Grid - Updated rounded-2xl to rounded-xl */}
+      <Card className="rounded-xl overflow-hidden shadow-sm border-muted">
         <CardContent className="p-2 sm:p-4">
           <div className="flex justify-between items-center mb-4 px-2">
             <h3 className="text-lg font-bold">{format(calendarMonth, "MMMM yyyy")}</h3>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="hidden sm:flex h-8 rounded-lg" onClick={() => setCalendarMonth(new Date())}>Today</Button>
+              <Button variant="outline" size="sm" className="hidden sm:flex h-8 rounded-md" onClick={() => setCalendarMonth(new Date())}>Today</Button>
               <Button variant="ghost" size="icon" onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}><ChevronLeft className="w-4 h-4" /></Button>
               <Button variant="ghost" size="icon" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}><ChevronRight className="w-4 h-4" /></Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-px bg-border border border-muted rounded-xl overflow-hidden">
+          <div className="grid grid-cols-7 gap-px bg-border border border-muted rounded-lg overflow-hidden">
+            {/* Days row... */}
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
               <div key={d} className="bg-muted/40 p-2 text-center text-[10px] font-bold uppercase text-muted-foreground">
                 <span className="sm:hidden">{d.charAt(0)}</span>
@@ -204,9 +218,9 @@ export function MemberCalendarTab() {
               const isSelected = isSameDay(day, selectedCalendarDate);
               const isToday = isSameDay(day, new Date());
               return (
-                <div 
-                  key={day.toISOString()} 
-                  onClick={() => setSelectedCalendarDate(day)} 
+                <div
+                  key={day.toISOString()}
+                  onClick={() => setSelectedCalendarDate(day)}
                   className={cn(
                     "min-h-[60px] sm:min-h-[100px] bg-card p-1 sm:p-1.5 cursor-pointer transition-all hover:bg-muted/30",
                     !isSameMonth(day, calendarMonth) && "opacity-20",
@@ -219,8 +233,7 @@ export function MemberCalendarTab() {
                   )}>
                     {format(day, "d")}
                   </div>
-
-                  {/* Desktop View: Text Labels */}
+                  {/* Desktop View Labels */}
                   <div className="hidden sm:block space-y-1">
                     {dayEvents.slice(0, 3).map(e => (
                       <div key={e.id} onClick={(ev) => handleEventClick(e, ev)} className={cn("text-[9px] px-1.5 py-0.5 rounded-md truncate text-white font-medium", e.color)}>
@@ -229,11 +242,10 @@ export function MemberCalendarTab() {
                     ))}
                     {dayEvents.length > 3 && <div className="text-[9px] text-muted-foreground font-bold pl-1">+{dayEvents.length - 3}</div>}
                   </div>
-
-                  {/* Mobile View: Dots (Your Request) */}
+                  {/* Mobile Dots */}
                   <div className="flex sm:hidden flex-wrap gap-0.5 justify-center mt-1">
                     {dayEvents.slice(0, 4).map(e => (
-                      <div key={e.id} className={cn("w-1.5 h-1.5 rounded-full", e.color)} />
+                      <div key={e.id} className={cn("w-1 h-1 rounded-full", e.color)} />
                     ))}
                   </div>
                 </div>
@@ -284,7 +296,7 @@ export function MemberCalendarTab() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={newTargetDate} onSelect={(d) => { if(d){setNewTargetDate(d); setTargetCalOpen(false)}} } />
+                <Calendar mode="single" selected={newTargetDate} onSelect={(d) => { if (d) { setNewTargetDate(d); setTargetCalOpen(false) } }} />
               </PopoverContent>
             </Popover>
           </div>
@@ -465,5 +477,5 @@ const generateSampleData = (): MemberCalendarEvent[] => {
     dd.setDate(dd.getDate() + 1);
   }
 
-  return events; 
+  return events;
 };
