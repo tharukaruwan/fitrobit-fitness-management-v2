@@ -2,14 +2,13 @@ import * as React from "react";
 import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths } from "date-fns";
 import {
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock,
-  Trash2, ChevronRight as ChevronRightIcon, Loader2, User
+  ChevronRight as ChevronRightIcon, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -134,7 +133,7 @@ export function MemberCalendarTab() {
 
   return (
     <div className="space-y-6">
-      {/* 1. Detail Modal - Fixed Radius */}
+      {/* 1. Detail Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
         <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader><DialogTitle>{selectedEvent?.title}</DialogTitle></DialogHeader>
@@ -167,13 +166,13 @@ export function MemberCalendarTab() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. Filters - Changed rounded-full to rounded-lg */}
+      {/* 2. Filter Buttons - Fixed Radius */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           <Button
             variant={calendarFilterType === "all" ? "default" : "outline"}
             size="sm"
-            className="rounded-lg"
+            className="rounded-lg border-muted-foreground/20"
             onClick={() => setCalendarFilterType("all")}
           >
             All
@@ -183,7 +182,7 @@ export function MemberCalendarTab() {
               key={t.value}
               variant={calendarFilterType === t.value ? "default" : "outline"}
               size="sm"
-              className="rounded-lg shrink-0"
+              className="rounded-lg shrink-0 border-muted-foreground/20"
               onClick={() => setCalendarFilterType(t.value)}
             >
               <div className={cn("w-2 h-2 rounded-full mr-2", t.color)} /> {t.label}
@@ -193,27 +192,49 @@ export function MemberCalendarTab() {
         <Button size="sm" onClick={() => setShowAddTarget(true)} className="rounded-lg"><Plus className="w-4 h-4 mr-1" /> Add Target</Button>
       </div>
 
-      {/* 3. Calendar Grid - Updated rounded-2xl to rounded-xl */}
+      {/* 3. Calendar Grid - Removed bg-border/gap-px for a cleaner look */}
       <Card className="rounded-xl overflow-hidden shadow-sm border-muted">
         <CardContent className="p-2 sm:p-4">
-          <div className="flex justify-between items-center mb-4 px-2">
-            <h3 className="text-lg font-bold">{format(calendarMonth, "MMMM yyyy")}</h3>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="hidden sm:flex h-8 rounded-md" onClick={() => setCalendarMonth(new Date())}>Today</Button>
-              <Button variant="ghost" size="icon" onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}><ChevronLeft className="w-4 h-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}><ChevronRight className="w-4 h-4" /></Button>
+          <div className="flex justify-between items-center mb-6 px-2">
+            <h3 className="text-lg font-bold tracking-tight">{format(calendarMonth, "MMMM yyyy")}</h3>
+            <div className="flex items-center gap-1.5">
+              {/* Restored Button-like styling for nav controls */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="hidden sm:flex h-8 px-3 rounded-lg border-muted bg-background hover:bg-muted font-medium" 
+                onClick={() => setCalendarMonth(new Date())}
+              >
+                Today
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-8 w-8 rounded-lg border-muted bg-background hover:bg-muted"
+                onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-8 w-8 rounded-lg border-muted bg-background hover:bg-muted"
+                onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-px bg-border border border-muted rounded-lg overflow-hidden">
-            {/* Days row... */}
+          {/* Removed bg-border and gap-px to eliminate the extra lines around cells */}
+          <div className="grid grid-cols-7 rounded-lg overflow-hidden border border-muted">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-              <div key={d} className="bg-muted/40 p-2 text-center text-[10px] font-bold uppercase text-muted-foreground">
+              <div key={d} className="bg-muted/30 py-2.5 text-center text-[10px] font-bold uppercase text-muted-foreground border-b border-muted">
                 <span className="sm:hidden">{d.charAt(0)}</span>
                 <span className="hidden sm:inline">{d}</span>
               </div>
             ))}
-            {calendarDays.map(day => {
+            {calendarDays.map((day, idx) => {
               const dayEvents = getEventsForDay(day);
               const isSelected = isSameDay(day, selectedCalendarDate);
               const isToday = isSameDay(day, new Date());
@@ -222,18 +243,18 @@ export function MemberCalendarTab() {
                   key={day.toISOString()}
                   onClick={() => setSelectedCalendarDate(day)}
                   className={cn(
-                    "min-h-[60px] sm:min-h-[100px] bg-card p-1 sm:p-1.5 cursor-pointer transition-all hover:bg-muted/30",
+                    "min-h-[60px] sm:min-h-[100px] bg-card p-1 sm:p-1.5 cursor-pointer transition-all hover:bg-muted/10 border-r border-b border-muted last:border-r-0",
                     !isSameMonth(day, calendarMonth) && "opacity-20",
                     isSelected && "ring-2 ring-primary ring-inset z-10"
                   )}
                 >
                   <div className={cn(
                     "text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1",
-                    isToday ? "bg-primary text-white" : "text-foreground"
+                    isToday ? "bg-primary text-white shadow-sm" : "text-foreground"
                   )}>
                     {format(day, "d")}
                   </div>
-                  {/* Desktop View Labels */}
+                  {/* Desktop View */}
                   <div className="hidden sm:block space-y-1">
                     {dayEvents.slice(0, 3).map(e => (
                       <div key={e.id} onClick={(ev) => handleEventClick(e, ev)} className={cn("text-[9px] px-1.5 py-0.5 rounded-md truncate text-white font-medium", e.color)}>
@@ -256,7 +277,7 @@ export function MemberCalendarTab() {
       </Card>
 
       {/* 4. Daily Agenda */}
-      <Card className="rounded-2xl border-muted">
+      <Card className="rounded-xl border-muted">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-bold flex items-center gap-2">
@@ -265,8 +286,8 @@ export function MemberCalendarTab() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {selectedDayEvents.length > 0 ? selectedDayEvents.map(e => (
-              <div key={e.id} onClick={() => handleEventClick(e)} className="group flex items-center gap-3 p-3 rounded-xl bg-muted/20 hover:bg-muted/40 border border-transparent hover:border-muted transition-all cursor-pointer">
-                <div className={cn("w-1.5 h-10 rounded-full shrink-0", e.color)} />
+              <div key={e.id} onClick={() => handleEventClick(e)} className="group flex items-center gap-3 p-3 rounded-lg bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer border border-transparent hover:border-muted/50">
+                <div className={cn("w-1 h-8 rounded-full shrink-0", e.color)} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{e.title}</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
@@ -276,7 +297,7 @@ export function MemberCalendarTab() {
                 <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />
               </div>
             )) : (
-              <div className="col-span-full py-8 text-center border-2 border-dashed border-muted rounded-xl bg-muted/5">
+              <div className="col-span-full py-8 text-center border border-dashed border-muted rounded-lg">
                 <p className="text-xs text-muted-foreground font-medium">No events for this date.</p>
               </div>
             )}
