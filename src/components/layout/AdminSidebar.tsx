@@ -52,14 +52,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface MenuItem {
   title: string;
+  translate: string;
   icon: React.ComponentType<{ className?: string }>;
   path?: string;
   moduleId?: ModuleId;
   subItems?: {
     title: string;
+    translate: string;
     path: string;
     icon: React.ComponentType<{ className?: string }>;
     moduleId?: ModuleId;
@@ -68,87 +71,96 @@ interface MenuItem {
 
 interface MenuSection {
   title: string;
+  translate: string;
   items: MenuItem[];
 }
 
 const menuSections: MenuSection[] = [
   {
     title: "",
+    translate: "",
     items: [
-      { title: "Dashboard", icon: LayoutDashboard, path: "/", moduleId: "dashboard" },
+      { title: "Dashboard", translate: "nav.dashboard", icon: LayoutDashboard, path: "/", moduleId: "dashboard" },
       {
         title: "Attendance",
         icon: UserCheck,
         moduleId: "attendance",
+        translate: "nav.attendance", 
         subItems: [
-          { title: "Daily", path: "/attendance/daily", icon: CalendarDays, moduleId: "attendance" },
-          { title: "First In/Out", path: "/attendance/first-in-out", icon: Clock, moduleId: "attendance" },
+          { title: "Daily", translate: "nav.dailyAttendance", path: "/attendance/daily", icon: CalendarDays, moduleId: "attendance" },
+          { title: "First In/Out", translate: "nav.firstInOut", path: "/attendance/first-in-out", icon: Clock, moduleId: "attendance" },
         ],
       },
-      { title: "Calendar", icon: CalendarDays, path: "/calendar", moduleId: "classes" },
-      { title: "Bookings", icon: CalendarCheck, path: "/bookings", moduleId: "classes" },
-      { title: "Members", icon: Users, path: "/members", moduleId: "members" },
+      { title: "Calendar", translate: "nav.calendar", icon: CalendarDays, path: "/calendar", moduleId: "classes" },
+      { title: "Bookings", translate: "nav.bookings", icon: CalendarCheck, path: "/bookings", moduleId: "classes" },
+      { title: "Members", translate: "nav.members", icon: Users, path: "/members", moduleId: "members" },
       {
         title: "Training & Plans",
+        translate: "nav.trainingPlans", 
         icon: CreditCard,
         moduleId: "memberships",
         subItems: [
-          { title: "Memberships", path: "/memberships", icon: CreditCard, moduleId: "memberships" },
-          { title: "Classes", path: "/classes", icon: Dumbbell, moduleId: "classes" },
-          { title: "Personal Training", path: "/training/personal", icon: UserCog2, moduleId: "personal_training" },
-          { title: "Categories", path: "/training/categories", icon: FolderOpen, moduleId: "memberships" },
+          { title: "Memberships", translate: "nav.memberships", path: "/memberships", icon: CreditCard, moduleId: "memberships" },
+          { title: "Classes", translate: "nav.classes", path: "/classes", icon: Dumbbell, moduleId: "classes" },
+          { title: "Personal Training", translate: "nav.personalTraining", path: "/training/personal", icon: UserCog2, moduleId: "personal_training" },
+          { title: "Categories", translate: "nav.categories", path: "/training/categories", icon: FolderOpen, moduleId: "memberships" },
         ],
       },
       {
         title: "Master Data",
+        translate: "nav.masterData", 
         icon: Database,
         moduleId: "classes",
         subItems: [
-          { title: "Workout Plans", path: "/master-data/workouts", icon: ClipboardList, moduleId: "classes" },
-          { title: "Nutrition Plans", path: "/master-data/meals", icon: Apple, moduleId: "classes" },
-          { title: "Exercises", path: "/master-data/exercises", icon: Dumbbell, moduleId: "classes" },
-          { title: "Meals", path: "/master-data/meals-library", icon: Apple, moduleId: "classes" },
-          { title: "Measurements", path: "/master-data/measurements", icon: Ruler, moduleId: "classes" },
+          { title: "Workout Plans", translate: "nav.dashboard", path: "/master-data/workouts", icon: ClipboardList, moduleId: "classes" },
+          { title: "Nutrition Plans", translate: "nav.dashboard", path: "/master-data/meals", icon: Apple, moduleId: "classes" },
+          { title: "Exercises", translate: "nav.dashboard", path: "/master-data/exercises", icon: Dumbbell, moduleId: "classes" },
+          { title: "Meals", translate: "nav.dashboard", path: "/master-data/meals-library", icon: Apple, moduleId: "classes" },
+          { title: "Measurements", translate: "nav.dashboard", path: "/master-data/measurements", icon: Ruler, moduleId: "classes" },
         ],
       },
       {
         title: "Products",
+        translate: "nav.dashboard", 
         icon: Package,
         moduleId: "products",
         subItems: [
-          { title: "POS", path: "/products/pos", icon: Package, moduleId: "products" },
-          { title: "Categories", path: "/products/categories", icon: FolderOpen, moduleId: "products" },
+          { title: "POS", translate: "nav.dashboard", path: "/products/pos", icon: Package, moduleId: "products" },
+          { title: "Categories", translate: "nav.dashboard", path: "/products/categories", icon: FolderOpen, moduleId: "products" },
         ],
       },
       {
         title: "Operations",
+        translate: "nav.dashboard", 
         icon: Receipt,
         moduleId: "members",
         subItems: [
-          { title: "Day Passes", path: "/day-passes", icon: Ticket, moduleId: "members" },
-          { title: "Receipts", path: "/receipts", icon: Receipt, moduleId: "payments" },
-          { title: "Expenses", path: "/expenses", icon: TrendingDown, moduleId: "expenses" },
+          { title: "Day Passes", translate: "nav.dashboard", path: "/day-passes", icon: Ticket, moduleId: "members" },
+          { title: "Receipts", translate: "nav.dashboard", path: "/receipts", icon: Receipt, moduleId: "payments" },
+          { title: "Expenses", translate: "nav.dashboard", path: "/expenses", icon: TrendingDown, moduleId: "expenses" },
         ],
       },
       {
         title: "Organization",
+        translate: "nav.dashboard", 
         icon: Building2,
         moduleId: "employees",
         subItems: [
-          { title: "Employees", path: "/employees", icon: UserCog, moduleId: "employees" },
-          { title: "Roles", path: "/roles", icon: Shield, moduleId: "roles" },
-          { title: "Branches", path: "/branches", icon: Building2, moduleId: "branches" },
-          { title: "Devices", path: "/devices", icon: Smartphone, moduleId: "devices" },
-          { title: "Equipment", path: "/equipment", icon: Wrench, moduleId: "equipment" },
+          { title: "Employees", translate: "nav.dashboard", path: "/employees", icon: UserCog, moduleId: "employees" },
+          { title: "Roles", translate: "nav.dashboard", path: "/roles", icon: Shield, moduleId: "roles" },
+          { title: "Branches", translate: "nav.dashboard", path: "/branches", icon: Building2, moduleId: "branches" },
+          { title: "Devices", translate: "nav.dashboard", path: "/devices", icon: Smartphone, moduleId: "devices" },
+          { title: "Equipment", translate: "nav.dashboard", path: "/equipment", icon: Wrench, moduleId: "equipment" },
         ],
       },
       {
         title: "Tools",
+        translate: "nav.dashboard", 
         icon: Radio,
         moduleId: "broadcasts",
         subItems: [
-          { title: "Broadcasts", path: "/broadcasts", icon: Radio, moduleId: "broadcasts" },
-          { title: "Fitrobit AI", path: "/fitrobit-ai", icon: Bot, moduleId: "dashboard" },
+          { title: "Broadcasts", translate: "nav.dashboard", path: "/broadcasts", icon: Radio, moduleId: "broadcasts" },
+          { title: "Fitrobit AI", translate: "nav.dashboard", path: "/fitrobit-ai", icon: Bot, moduleId: "dashboard" },
         ],
       },
     ],
@@ -165,6 +177,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const { t } = useTranslation();
   const { canAccessModule } = usePermissions();
   const authUser = useAppSelector((state) => state.auth.user);
   const collapsed = useAppSelector((state) => state.sidebar.collapsed);
@@ -270,7 +283,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             className="w-48 p-2 z-[9999] bg-popover border shadow-lg"
           >
             <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {item.title}
+              {t(item.translate as any)}
             </p>
             <div className="space-y-0.5">
               {item.subItems.map((sub) => (
@@ -286,7 +299,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                   )}
                 >
                   <sub.icon className="w-4 h-4" />
-                  {sub.title}
+                  {t(sub.translate as any)}
                 </Link>
               ))}
             </div>
@@ -312,7 +325,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           </Link>
         </TooltipTrigger>
         <TooltipContent side="right" className="font-medium z-[9999]">
-          {item.title}
+          {t(item.translate as any)}
         </TooltipContent>
       </Tooltip>
     );
@@ -388,7 +401,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               <div key={section.title || `section-${sectionIndex}`}>
                 {section.title && !isCollapsed && (
                   <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {section.title}
+                    {section.translate ? t(section.translate as any) : section.title}
                   </h3>
                 )}
                 <ul className="space-y-1">
@@ -410,7 +423,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                           >
                             <div className="flex items-center gap-3">
                               <item.icon className="w-5 h-5" />
-                              <span>{item.title}</span>
+                              <span>{t(item.translate as any)}</span>
                             </div>
                             {expandedItems.includes(item.title) ? (
                               <ChevronDown className="w-4 h-4" />
@@ -435,7 +448,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                                     )}
                                   >
                                     <subItem.icon className="w-4 h-4" />
-                                    <span>{subItem.title}</span>
+                                    <span>{t(subItem.translate as any)}</span>
                                   </Link>
                                 </li>
                               ))}
@@ -455,7 +468,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                           )}
                         >
                           <item.icon className="w-5 h-5" />
-                          <span>{item.title}</span>
+                          <span>{t(item.translate as any)}</span>
                         </Link>
                       )}
                     </li>
@@ -494,7 +507,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                     className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
-                    Logout
+                    {t("common.logout" as any)}
                   </Button>
                 </PopoverContent>
               </Popover>
