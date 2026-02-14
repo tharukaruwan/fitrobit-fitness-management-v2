@@ -16,7 +16,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { QuickAddSheet } from "@/components/ui/quick-add-sheet";
 import { cn } from "@/lib/utils";
 
-// --- Types & Constants ---
+// ... [Types & Constants remain the same] ...
 const TARGET_CATEGORIES = [
   { value: "sleep", label: "Sleep", unit: "hours" },
   { value: "steps", label: "Step Count", unit: "steps" },
@@ -60,6 +60,7 @@ export function MemberCalendarTab() {
   const [calendarFilterType, setCalendarFilterType] = React.useState("all");
 
   const [showEventModal, setShowEventModal] = React.useState(false);
+  const [showDayModal, setShowDayModal] = React.useState(false); // New state for day summary
   const [selectedEvent, setSelectedEvent] = React.useState<MemberCalendarEvent | null>(null);
   const [showAddTarget, setShowAddTarget] = React.useState(false);
   const [showLogProgress, setShowLogProgress] = React.useState(false);
@@ -88,12 +89,23 @@ export function MemberCalendarTab() {
     );
   };
 
+  // Click handler for individual event labels
   const handleEventClick = (event: MemberCalendarEvent, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setSelectedEvent(event);
     setEditTargetActual(event.actualValue?.toString() || "");
     setShowLogProgress(false);
+    setShowDayModal(false); // Close day modal if opening specific event
     setShowEventModal(true);
+  };
+
+  // Click handler for the whole day cell
+  const handleDayClick = (day: Date) => {
+    setSelectedCalendarDate(day);
+    const dayEvents = getEventsForDay(day);
+    if (dayEvents.length > 0) {
+      setShowDayModal(true);
+    }
   };
 
   const handleAddTarget = async () => {
@@ -133,7 +145,7 @@ export function MemberCalendarTab() {
 
   return (
     <div className="space-y-6">
-      {/* 1. Detail Modal */}
+      {/* 1. Detail Modal (Specific Event) */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
         <DialogContent className="sm:max-w-md rounded-xl">
           <DialogHeader><DialogTitle>{selectedEvent?.title}</DialogTitle></DialogHeader>
@@ -166,7 +178,37 @@ export function MemberCalendarTab() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. Filter Buttons - Fixed Radius */}
+      {/* 2. Day Summary Modal (Triggered by clicking date) */}
+      <Dialog open={showDayModal} onOpenChange={setShowDayModal}>
+        <DialogContent className="sm:max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-left flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-primary" />
+                {format(selectedCalendarDate, "MMMM d, yyyy")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2 max-h-[60vh] overflow-y-auto pr-1">
+            {selectedDayEvents.map(e => (
+              <div 
+                key={e.id} 
+                onClick={() => handleEventClick(e)}
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 hover:bg-muted/40 cursor-pointer border border-transparent hover:border-muted transition-all"
+              >
+                <div className={cn("w-1 h-10 rounded-full", e.color)} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{e.title}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Clock className="w-3 h-3" /> {e.time || "Goal"}
+                  </p>
+                </div>
+                <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 3. Filter Buttons */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           <Button
@@ -192,7 +234,7 @@ export function MemberCalendarTab() {
         <Button size="sm" onClick={() => setShowAddTarget(true)} className="rounded-lg"><Plus className="w-4 h-4 mr-1" /> Add Target</Button>
       </div>
 
-      {/* 3. Calendar Grid - Removed bg-border/gap-px for a cleaner look */}
+      {/* 4. Calendar Grid */}
       <Card className="rounded-xl overflow-hidden shadow-sm border-muted">
         <CardContent className="p-2 sm:p-4">
           <div className="flex justify-between items-center mb-6 px-2">
@@ -226,7 +268,6 @@ export function MemberCalendarTab() {
             </div>
           </div>
 
-          {/* Removed bg-border and gap-px to eliminate the extra lines around cells */}
           <div className="grid grid-cols-7 rounded-lg overflow-hidden border border-muted">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
               <div key={d} className="bg-muted/30 py-2.5 text-center text-[10px] font-bold uppercase text-muted-foreground border-b border-muted">
@@ -241,7 +282,7 @@ export function MemberCalendarTab() {
               return (
                 <div
                   key={day.toISOString()}
-                  onClick={() => setSelectedCalendarDate(day)}
+                  onClick={() => handleDayClick(day)}
                   className={cn(
                     "min-h-[60px] sm:min-h-[100px] bg-card p-1 sm:p-1.5 cursor-pointer transition-all hover:bg-muted/10 border-r border-b border-muted last:border-r-0",
                     !isSameMonth(day, calendarMonth) && "opacity-20",
@@ -275,7 +316,7 @@ export function MemberCalendarTab() {
           </div>
         </CardContent>
       </Card>
-
+      
       {/* 4. Daily Agenda */}
       <Card className="rounded-xl border-muted">
         <CardContent className="p-4">
@@ -342,7 +383,7 @@ export function MemberCalendarTab() {
 
 // Keep the generateSampleData function as provided in previous code
 const generateSampleData = (): MemberCalendarEvent[] => {
-  const today = new Date();
+    const today = new Date();
   const events: MemberCalendarEvent[] = [];
 
   // Past attendances
