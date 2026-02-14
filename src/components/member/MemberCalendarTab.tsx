@@ -235,9 +235,9 @@ export function MemberCalendarTab() {
       </div>
 
       {/* 4. Calendar Grid */}
-      <Card className="rounded-xl overflow-hidden shadow-sm border-muted">
-        <CardContent className="p-2 sm:p-4">
-          <div className="flex justify-between items-center mb-6 px-2">
+      {/* <Card className="rounded-xl overflow-hidden shadow-sm border-muted"> */}
+        {/* <CardContent className="p-2 sm:p-4"> */}
+          <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold tracking-tight">{format(calendarMonth, "MMMM yyyy")}</h3>
             <div className="flex items-center gap-1.5">
               {/* Restored Button-like styling for nav controls */}
@@ -314,8 +314,8 @@ export function MemberCalendarTab() {
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+        {/* </CardContent> */}
+      {/* </Card> */}
       
       {/* 4. Daily Agenda */}
       <Card className="rounded-xl border-muted">
