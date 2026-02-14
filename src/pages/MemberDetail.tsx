@@ -48,6 +48,10 @@ import {
   FolderOpen,
   IdCardIcon,
   Notebook,
+  ClipboardList,
+  DollarSign,
+  Shield,
+  Award,
 } from "lucide-react";
 import { MemberWorkoutTab } from "@/components/member/MemberWorkoutTab";
 import { MemberDietTab } from "@/components/member/MemberDietTab";
@@ -62,6 +66,10 @@ import { MemberStatusTab } from "@/components/member/MemberStatusTab";
 import { MemberCalendarTab } from "@/components/member/MemberCalendarTab";
 import { MemberPaymentsTab } from "@/components/member/MemberPaymentsTab";
 import Request from "@/lib/api/client";
+import { MemberAttendanceTab } from "@/components/member/MemberAttendanceTab";
+import { MemberSalaryTab } from "@/components/member/MemberSalaryTab";
+import { MemberLeaveTab } from "@/components/member/MemberLeaveTab";
+import { MemberQualificationsTab } from "@/components/member/MemberQualificationsTab";
 
 // Zod validation schema - FIXED: Made optional fields actually optional
 const memberFormSchema = z.object({
@@ -777,10 +785,10 @@ export default function MemberDetail() {
       content: PersonalTab
     },
     {
-      id: "payment",
-      label: "Payment",
-      icon: <CreditCard className="w-4 h-4" />,
-      content: <MemberPaymentsTab id={id} />
+      id: "membership",
+      label: "Membership",
+      icon: <Users className="w-4 h-4" />,
+      content: <MemberMembershipTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
     },
     {
       id: "calendar",
@@ -789,16 +797,17 @@ export default function MemberDetail() {
       content: <MemberCalendarTab />
     },
     {
+      id: "payment",
+      label: "Payment",
+      icon: <CreditCard className="w-4 h-4" />,
+      content: <MemberPaymentsTab id={id} />
+    },
+
+    {
       id: "status",
       label: "Status",
       icon: <CheckCircle2 className="w-4 h-4" />,
       content: <MemberStatusTab id={id} />
-    },
-    {
-      id: "membership",
-      label: "Membership",
-      icon: <Users className="w-4 h-4" />,
-      content: <MemberMembershipTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
     },
     {
       id: "classes",
@@ -847,6 +856,30 @@ export default function MemberDetail() {
       label: "Documents",
       icon: <FolderOpen className="w-4 h-4" />,
       content: <MemberDocumentsTab memberId={memberDetails?.memberId || undefined} memberName={memberDetails?.name || "Unknown Member"} />
+    },
+    { 
+      id: "attendance", 
+      label: "Attendance", 
+      icon: <ClipboardList className="w-4 h-4" />, 
+      content: <MemberAttendanceTab /> 
+    },
+    { 
+      id: "salary", 
+      label: "Salary", 
+      icon: <DollarSign className="w-4 h-4" />, 
+      content: <MemberSalaryTab /> 
+    },
+    { 
+      id: "leave", 
+      label: "Leave & HR", 
+      icon: <Shield className="w-4 h-4" />, 
+      content: <MemberLeaveTab /> 
+    },
+    { 
+      id: "qualifications", 
+      label: "Qualifications", 
+      icon: <Award className="w-4 h-4" />, 
+      content: <MemberQualificationsTab /> 
     },
   ];
 
