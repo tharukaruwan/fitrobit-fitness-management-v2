@@ -10,8 +10,6 @@ import {
   DetailTab,
   SectionHeader
 } from "@/components/ui/detail-page-template";
-import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
-import { FilterBar, FilterConfig } from "@/components/ui/filter-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +17,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -34,7 +26,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { generateReceipt, ReceiptSize } from "@/lib/pdf-utils";
 import { cn } from "@/lib/utils";
 import {
   User,
@@ -78,10 +69,10 @@ import { MemberClassesTab } from "@/components/member/MemberClassesTab";
 import { MemberPTTab } from "@/components/member/MemberPTTab";
 import { MemberEmergencyTab } from "@/components/member/MemberEmergencyTab";
 import { MemberDocumentsTab } from "@/components/member/MemberDocumentsTab";
-import Request from "@/lib/api/client";
 import { MemberStatusTab } from "@/components/member/MemberStatusTab";
 import { MemberCalendarTab } from "@/components/member/MemberCalendarTab";
-
+import { MemberPaymentsTab } from "@/components/member/MemberPaymentsTab";
+import Request from "@/lib/api/client";
 // Zod validation schema
 const memberFormSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
@@ -99,45 +90,6 @@ const memberFormSchema = z.object({
 });
 
 type MemberFormValues = z.infer<typeof memberFormSchema>;
-
-// Sample payment data
-interface Payment {
-  phoneNumber?: string;
-  id: number;
-  receiptNo: string;
-  date: string;
-  description: string;
-  amount: string;
-  method: string;
-  status: "paid" | "pending" | "failed";
-}
-
-const paymentData: Payment[] = [
-  { id: 1, receiptNo: "REC-2024-001", date: "Jan 15, 2024", description: "Premium Membership - Annual", amount: "$599.00", method: "Credit Card", status: "paid" },
-  { id: 2, receiptNo: "REC-2023-045", date: "Dec 15, 2023", description: "Personal Training (5 sessions)", amount: "$150.00", method: "Cash", status: "paid" },
-  { id: 3, receiptNo: "REC-2023-044", date: "Nov 20, 2023", description: "Locker Rental - Monthly", amount: "$25.00", method: "Credit Card", status: "paid" },
-  { id: 4, receiptNo: "REC-2023-043", date: "Nov 15, 2023", description: "Premium Membership - Monthly", amount: "$59.00", method: "Credit Card", status: "paid" },
-  { id: 5, receiptNo: "REC-2023-042", date: "Oct 15, 2023", description: "Premium Membership - Monthly", amount: "$59.00", method: "Bank Transfer", status: "paid" },
-];
-
-const paymentColumns: Column<Payment>[] = [
-  { key: "receiptNo", label: "Receipt #", priority: "md" },
-  { key: "date", label: "Date", priority: "always" },
-  { key: "description", label: "Description", priority: "md" },
-  { key: "amount", label: "Amount", priority: "always", render: (value: string) => <span className="font-semibold text-card-foreground">{value}</span> },
-  { key: "method", label: "Method", priority: "lg" },
-  {
-    key: "status",
-    label: "Status",
-    priority: "always",
-    render: (value: "paid" | "pending" | "failed") => (
-      <StatusBadge
-        status={value === "paid" ? "success" : value === "pending" ? "warning" : "error"}
-        label={value.charAt(0).toUpperCase() + value.slice(1)}
-      />
-    )
-  },
-];
 
 // Common Types
 export interface Duration {
@@ -327,12 +279,7 @@ export default function MemberDetail() {
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentPage, setPaymentPage] = useState(1);
-  const [paymentSearch, setPaymentSearch] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
-  const paymentsPerPage = 3;
 
 
   const { data: apiResponse, isLoading, refetch, error } = useQuery({
@@ -415,81 +362,6 @@ export default function MemberDetail() {
     window.open(`mailto:${emailAdd}`, "_blank");
   };
 
-  const handleAddPayment = () => {
-    toast({ title: "Add Payment", description: "Opening payment form..." });
-  };
-
-  const handlePrintReceipt = (payment: Payment, size: ReceiptSize) => {
-    const doc = generateReceipt({
-      receiptNo: payment.receiptNo,
-      date: payment.date,
-      memberName: memberDetails?.name || "Unknown Member",
-      memberId: memberDetails?.memberId || undefined,
-      phoneNumber: memberDetails?.phoneNumber || undefined,
-      email: memberDetails?.email || undefined,
-      description: payment.description,
-      amount: payment.amount,
-      paymentMethod: payment.method,
-      status: payment.status,
-      branch: memberDetails?.branch || undefined,
-    }, size);
-
-    if (size === "pos") {
-      // For POS, open in new window for printing
-      const pdfBlob = doc.output("blob");
-      const url = URL.createObjectURL(pdfBlob);
-      const printWindow = window.open(url);
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-    } else {
-      // For other sizes, download
-      doc.save(`receipt-${payment.receiptNo}-${size}.pdf`);
-    }
-
-    toast({
-      title: size === "pos" ? "Printing Receipt" : "Receipt Downloaded",
-      description: `${size.toUpperCase()} format generated for ${payment.receiptNo}`
-    });
-  };
-
-  // Receipt print dropdown component
-  const ReceiptPrintCell = ({ payment }: { payment: Payment }) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <FileText className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handlePrintReceipt(payment, "pos")}>
-          <Printer className="h-4 w-4 mr-2" />
-          POS (80mm)
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handlePrintReceipt(payment, "a4")}>
-          <FileText className="h-4 w-4 mr-2" />
-          A4
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handlePrintReceipt(payment, "a5")}>
-          <FileText className="h-4 w-4 mr-2" />
-          A5
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handlePrintReceipt(payment, "letter")}>
-          <FileText className="h-4 w-4 mr-2" />
-          US Letter
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
-  const paymentActions: RowAction<Payment>[] = [
-    { icon: Eye, label: "View", onClick: () => toast({ title: "View Receipt" }), variant: "default" },
-  ];
-
-  // Personal Info Tab - Always Editable Form with Validation
-  // TODO why this input boxes when type it wont work?
   const PersonalTab = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -766,113 +638,6 @@ export default function MemberDetail() {
     </Form>
   );
 
-  // Payment Tab
-  const paymentFilters: FilterConfig[] = [
-    {
-      key: "status",
-      label: "Status",
-      value: paymentStatusFilter,
-      onChange: (value) => {
-        setPaymentStatusFilter(value);
-        setPaymentPage(1);
-      },
-      options: [
-        { value: "paid", label: "Paid" },
-        { value: "pending", label: "Pending" },
-        { value: "failed", label: "Failed" },
-      ],
-    },
-    {
-      key: "method",
-      label: "Method",
-      value: paymentMethodFilter,
-      onChange: (value) => {
-        setPaymentMethodFilter(value);
-        setPaymentPage(1);
-      },
-      options: [
-        { value: "Credit Card", label: "Credit Card" },
-        { value: "Cash", label: "Cash" },
-        { value: "Bank Transfer", label: "Bank Transfer" },
-      ],
-    },
-  ];
-
-  const filteredPayments = paymentData.filter((payment) => {
-    const matchesSearch = paymentSearch === "" ||
-      payment.receiptNo.toLowerCase().includes(paymentSearch.toLowerCase()) ||
-      payment.description.toLowerCase().includes(paymentSearch.toLowerCase());
-    const matchesStatus = paymentStatusFilter === "all" || payment.status === paymentStatusFilter;
-    const matchesMethod = paymentMethodFilter === "all" || payment.method === paymentMethodFilter;
-    return matchesSearch && matchesStatus && matchesMethod;
-  });
-
-  const paginatedPayments = filteredPayments.slice(
-    (paymentPage - 1) * paymentsPerPage,
-    paymentPage * paymentsPerPage
-  );
-
-  const PaymentTab = (
-    <div className="space-y-4">
-      <SectionHeader
-        title="Payment History"
-        action={
-          <Button size="sm" onClick={handleAddPayment}>
-            <Plus className="w-4 h-4 mr-1" />
-            Add Payment
-          </Button>
-        }
-      />
-
-      {/* Payment Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <div className="bg-muted/30 rounded-lg p-4 border border-border/30">
-          <p className="text-xs text-muted-foreground mb-1">Total Paid</p>
-          <p className="text-lg font-bold text-card-foreground">$892.00</p>
-        </div>
-        <div className="bg-muted/30 rounded-lg p-4 border border-border/30">
-          <p className="text-xs text-muted-foreground mb-1">Pending</p>
-          <p className="text-lg font-bold text-warning">$0.00</p>
-        </div>
-        <div className="bg-muted/30 rounded-lg p-4 border border-border/30">
-          <p className="text-xs text-muted-foreground mb-1">This Month</p>
-          <p className="text-lg font-bold text-primary">$599.00</p>
-        </div>
-        <div className="bg-muted/30 rounded-lg p-4 border border-border/30">
-          <p className="text-xs text-muted-foreground mb-1">Transactions</p>
-          <p className="text-lg font-bold text-card-foreground">{filteredPayments.length}</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <FilterBar
-        searchPlaceholder="Search receipts..."
-        searchValue={paymentSearch}
-        onSearchChange={(value) => {
-          setPaymentSearch(value);
-          setPaymentPage(1);
-        }}
-        filters={paymentFilters}
-      />
-
-      <ResponsiveTable
-        data={paginatedPayments}
-        columns={paymentColumns}
-        keyExtractor={(item) => item.id}
-        rowActions={paymentActions}
-        customActions={(item) => <ReceiptPrintCell payment={item} />}
-        pagination={{
-          currentPage: paymentPage,
-          totalPages: Math.ceil(filteredPayments.length / paymentsPerPage),
-          totalItems: filteredPayments.length,
-          itemsPerPage: paymentsPerPage,
-          onPageChange: setPaymentPage,
-        }}
-      />
-    </div>
-  );
-
-
   const tabs: DetailTab[] = [
     {
       id: "personal",
@@ -884,7 +649,7 @@ export default function MemberDetail() {
       id: "payment",
       label: "Payment",
       icon: <CreditCard className="w-4 h-4" />,
-      content: PaymentTab // TODO: Create seperate PaymentTab component with payment history and add payment form
+      content: <MemberPaymentsTab id={id} />
     },
     {
       id: "calendar",
