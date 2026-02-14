@@ -1,16 +1,17 @@
 import * as React from "react";
-import { ArrowLeft, Camera, Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Camera, Upload, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// --- Types ---
 
 export interface DetailTab {
   id: string;
@@ -37,7 +38,49 @@ export interface DetailPageTemplateProps {
   backPath?: string;
   className?: string;
   onAvatarChange?: (file: File) => void;
+  isLoading?: boolean;
+  error?: string | boolean | null;
 }
+
+// --- Helper Components ---
+
+function DetailLoadingSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="bg-card rounded-xl border p-6 space-y-6">
+        <div className="h-8 w-20 bg-muted rounded" />
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-muted rounded-full" />
+          <div className="space-y-2 flex-1">
+            <div className="h-6 w-1/3 bg-muted rounded" />
+            <div className="h-4 w-1/4 bg-muted rounded" />
+          </div>
+        </div>
+      </div>
+      <div className="h-64 bg-card rounded-xl border" />
+    </div>
+  );
+}
+
+function DetailErrorState({ message, onBack }: { message?: string; onBack: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] bg-card rounded-xl border border-destructive/20 p-8 text-center">
+      <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+        <AlertCircle className="w-6 h-6 text-destructive" />
+      </div>
+      <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
+      <p className="text-muted-foreground mb-6 max-w-md">
+        {message || "We encountered an error while loading the details."}
+      </p>
+      <Button onClick={onBack} variant="outline">
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Go Back
+      </Button>
+    </div>
+  );
+}
+
+// --- Main Component ---
 
 export function DetailPageTemplate({
   title,
@@ -50,8 +93,12 @@ export function DetailPageTemplate({
   backPath,
   className,
   onAvatarChange,
+  isLoading,
+  error,
 }: DetailPageTemplateProps) {
   const navigate = useNavigate();
+  
+  // 1. ALL HOOKS MUST BE DECLARED AT THE TOP
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -59,12 +106,19 @@ export function DetailPageTemplate({
   const [stream, setStream] = React.useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
 
+  // Cleanup stream on unmount
+  React.useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
+
+  // 2. HELPER FUNCTIONS
   const handleBack = () => {
-    if (backPath) {
-      navigate(backPath);
-    } else {
-      navigate(-1);
-    }
+    if (backPath) navigate(backPath);
+    else navigate(-1);
   };
 
   const handleFileUpload = () => {
@@ -85,12 +139,9 @@ export function DetailPageTemplate({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
       });
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = mediaStream;
     } catch (err) {
       setCameraError("Unable to access camera. Please check permissions.");
-      console.error("Camera error:", err);
     }
   };
 
@@ -132,18 +183,13 @@ export function DetailPageTemplate({
     }
   };
 
-  // Cleanup stream on unmount
-  React.useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [stream]);
+  // 3. CONDITIONAL RETURNS (After all hooks)
+  if (isLoading) return <DetailLoadingSkeleton />;
+  if (error) return <DetailErrorState message={typeof error === "string" ? error : undefined} onBack={handleBack} />;
 
+  // 4. MAIN RENDER
   return (
     <div className={cn("space-y-4 animate-fade-in", className)}>
-      {/* Camera Modal */}
       <Dialog open={showCameraModal} onOpenChange={(open) => !open && handleCloseCamera()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -185,15 +231,8 @@ export function DetailPageTemplate({
         <div className="bg-card rounded-xl shadow-soft border border-border/50 overflow-hidden">
           {/* Top Section: Back Button + Profile + Actions */}
           <div className="p-4 md:p-6">
-            {/* Back Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleBack}
-              className="mb-4 -ml-2 text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back
+            <Button variant="ghost" size="sm" onClick={handleBack} className="mb-4 -ml-2 text-muted-foreground">
+              <ArrowLeft className="w-4 h-4 mr-1" />Back
             </Button>
 
             {/* Profile Header */}
@@ -211,7 +250,7 @@ export function DetailPageTemplate({
                         className="hidden"
                         onChange={handleFileChange}
                       />
-                      <div className="absolute -bottom-1 -right-1 flex gap-1">
+                    <div className="absolute -bottom-1 -right-1 flex gap-1">
                         <button
                           onClick={handleFileUpload}
                           className="p-1.5 rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors"
@@ -226,7 +265,7 @@ export function DetailPageTemplate({
                         >
                           <Camera className="w-3.5 h-3.5" />
                         </button>
-                      </div>
+                    </div>
                     </>
                   )}
                 </div>
@@ -260,8 +299,8 @@ export function DetailPageTemplate({
                     >
                       {action.icon}
                       <span className="hidden sm:inline ml-1.5">{action.label}</span>
-                    </Button>
-                  ))}
+                </Button>
+              ))}
                 </div>
               )}
             </div>

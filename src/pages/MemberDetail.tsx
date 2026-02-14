@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { 
-  DetailPageTemplate, 
-  DetailTab, 
-  SectionHeader 
+import {
+  DetailPageTemplate,
+  DetailTab,
+  SectionHeader
 } from "@/components/ui/detail-page-template";
 import { ResponsiveTable, Column, RowAction } from "@/components/ui/responsive-table";
 import { FilterBar, FilterConfig } from "@/components/ui/filter-bar";
@@ -37,17 +38,17 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { generateReceipt, ReceiptSize } from "@/lib/pdf-utils";
 import { cn } from "@/lib/utils";
-import { 
-  User, 
-  CreditCard, 
-  TrendingUp, 
-  Pencil, 
-  MessageCircle, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar as CalendarIcon, 
-  Clock, 
+import {
+  User,
+  CreditCard,
+  TrendingUp,
+  Pencil,
+  MessageCircle,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar as CalendarIcon,
+  Clock,
   Dumbbell,
   Plus,
   Eye,
@@ -67,6 +68,8 @@ import {
   AlertCircle,
   FolderOpen,
   Trash2,
+  IdCardIcon,
+  Notebook,
 } from "lucide-react";
 import { MemberWorkoutTab } from "@/components/member/MemberWorkoutTab";
 import { MemberDietTab } from "@/components/member/MemberDietTab";
@@ -86,37 +89,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval, 
-  isSameMonth, 
-  isSameDay, 
-  addMonths, 
-  subMonths, 
-  startOfWeek, 
+import {
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths,
+  startOfWeek,
   endOfWeek,
   addDays,
   isAfter,
 } from "date-fns";
+import Request from "@/lib/api/client";
 
 // Zod validation schema
 const memberFormSchema = z.object({
+  name: z.string().min(1, { message: "Name is required" }),
   email: z.string().trim().email({ message: "Invalid email address" }).max(255),
-  phone: z.string().trim().min(1, { message: "Phone is required" }).max(20),
+  phoneNumber: z.string().trim().max(20),
+  nic: z.string().trim().max(20),
   address: z.string().trim().max(500, { message: "Address too long" }),
-  emergencyContact: z.string().trim().max(20),
-  memberId: z.string(),
-  membership: z.string().min(1, { message: "Membership is required" }),
-  branch: z.string().min(1, { message: "Branch is required" }),
-  joinDate: z.date({ required_error: "Join date is required" }),
-  expiryDate: z.date({ required_error: "Expiry date is required" }),
-  trainer: z.string().max(100),
+  remark: z.string().trim().max(20),
   gender: z.string().min(1, { message: "Gender is required" }),
   dateOfBirth: z.date({ required_error: "Date of birth is required" }),
   weight: z.string().max(20),
   height: z.string().max(20),
   goal: z.string().max(500),
+  branch: z.string().min(1, { message: "Branch is required" }),
 });
 
 type MemberFormValues = z.infer<typeof memberFormSchema>;
@@ -126,17 +127,19 @@ const memberData = {
   id: 1,
   memberId: "MEM-001",
   name: "John Smith",
-  image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=150",
+  image: "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
   email: "john.smith@email.com",
-  phone: "+1 234 567 890",
+  phoneNumber: "+1 234 567 890",
   membership: "Premium",
-  joinDate: new Date(2024, 0, 15), // Jan 15, 2024
+  createdAt: new Date(2024, 0, 15), // Jan 15, 2024
   expiryDate: new Date(2025, 0, 15), // Jan 15, 2025
   status: "active" as const,
   branch: "Downtown",
   birthday: "12-31",
   address: "123 Main Street, New York, NY 10001",
   emergencyContact: "+1 234 567 999",
+  nic: "123456789",
+  remark: "Good member",
   gender: "Male",
   dateOfBirth: new Date(1992, 5, 15), // June 15, 1992
   weight: "75 kg",
@@ -147,6 +150,7 @@ const memberData = {
 
 // Sample payment data
 interface Payment {
+  phoneNumber?: string;
   id: number;
   receiptNo: string;
   date: string;
@@ -170,14 +174,14 @@ const paymentColumns: Column<Payment>[] = [
   { key: "description", label: "Description", priority: "md" },
   { key: "amount", label: "Amount", priority: "always", render: (value: string) => <span className="font-semibold text-card-foreground">{value}</span> },
   { key: "method", label: "Method", priority: "lg" },
-  { 
-    key: "status", 
-    label: "Status", 
+  {
+    key: "status",
+    label: "Status",
     priority: "always",
     render: (value: "paid" | "pending" | "failed") => (
-      <StatusBadge 
-        status={value === "paid" ? "success" : value === "pending" ? "warning" : "error"} 
-        label={value.charAt(0).toUpperCase() + value.slice(1)} 
+      <StatusBadge
+        status={value === "paid" ? "success" : value === "pending" ? "warning" : "error"}
+        label={value.charAt(0).toUpperCase() + value.slice(1)}
       />
     )
   },
@@ -269,7 +273,7 @@ const getEventColorClass = (type: string) => {
 const generateMemberEvents = (): MemberCalendarEvent[] => {
   const today = new Date();
   const events: MemberCalendarEvent[] = [];
-  
+
   // Past attendances
   for (let i = 1; i <= 15; i++) {
     const pastDate = new Date(today);
@@ -426,14 +430,199 @@ const generateMemberEvents = (): MemberCalendarEvent[] => {
   return events;
 };
 
+const ITEMS_PER_PAGE = 8;
+
+// Common Types
+export interface Duration {
+  days: number;
+  weeks: number;
+  months: number;
+  years: number;
+}
+
+export interface Notification {
+  note: string;
+}
+
+export interface Membership {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  user: string;
+  class: string | null;
+  expiration: "Time_Base" | string;
+  duration: Duration;
+  maxAttendanceLimit: number | null;
+  status: "Active" | "Inactive" | string;
+  memberLimit: number;
+  benefits: any[];
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface MemberLite {
+  _id: string;
+  selfSignup: boolean;
+  memberId: string;
+  phoneNumber: string;
+  nic: string;
+  name: string;
+  gender: "male" | "female" | string;
+  user: string;
+  oldMemberShipGroup: string[];
+  notifications: Notification[];
+  status: "Active" | "Inactive" | string;
+  terminated: boolean;
+  terminatedReasons: string[];
+  blackListed: boolean;
+  blackListedReasons: string[];
+  renewalDay: string;
+  deviceData: any[];
+  createdUser: string;
+  createdBy: "gym" | "admin" | string;
+  createdAt: string;
+  updatedAt: string;
+  memberShip: Membership;
+  memberShipGroup: string;
+}
+
+export interface MemberShipGroup {
+  _id: string;
+  memberShip: Membership;
+  members: MemberLite[];
+  user: string;
+  status: "Active" | "Inactive" | string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface Member {
+  address: string;
+  remark: string;
+  dateOfBirth: Date;
+  weight: string;
+  height: string;
+  goal: string;
+  branch: string;
+  id: string;
+  image?: string;
+  selfSignup: boolean;
+  memberId: string;
+  phoneNumber: string;
+  nic: string;
+  email: string;
+  name: string;
+  gender: "male" | "female" | string;
+  user: string;
+  oldMemberShipGroup: string[];
+  notifications: Notification[];
+  status: "Active" | "Inactive" | string;
+  terminated: boolean;
+  terminatedReasons: string[];
+  blackListed: boolean;
+  blackListedReasons: string[];
+  renewalDay: string;
+  deviceData: any[];
+  createdUser: string;
+  createdBy: "gym" | "admin" | string;
+  createdAt: string;
+  updatedAt: string;
+  memberShip: Membership;
+  memberShipGroup: MemberShipGroup;
+  memberShipName?: string;
+  expiryDate: Date;
+}
+
+export interface ApiMember {
+  address: any;
+  dateOfBirth: any;
+  weight: any;
+  height: any;
+  goal: any;
+  branch: any;
+  remark: any;
+  _id: string;
+  image?: string;
+  selfSignup: boolean;
+  memberId: string;
+  phoneNumber?: string;
+  email: string;
+  nic: string;
+  name: string;
+  gender: "male" | "female" | string;
+  user: string;
+  oldMemberShipGroup: string[];
+  notifications: Notification[];
+  status: "Active" | "Inactive" | string;
+  terminated: boolean;
+  terminatedReasons: string[];
+  blackListed: boolean;
+  blackListedReasons: string[];
+  renewalDay: string;
+  deviceData: any[];
+  createdUser: string;
+  createdBy: "gym" | "admin" | string;
+  createdAt: string;
+  updatedAt: string;
+  memberShip: Membership;
+  memberShipGroup: MemberShipGroup;
+}
+
+
+const fetchMembers = async (id: string) => {
+  const res = await Request.get<ApiMember>(`members/${id}`);
+  return res;
+};
+
+const mapApiMember = (mb: ApiMember): Member => ({
+  id: mb._id,
+  memberId: mb.memberId,
+  name: mb.name ? mb.name : "No Name",
+  email: mb.email ? mb.email : "",
+  phoneNumber: mb.phoneNumber ? mb.phoneNumber : "",
+  nic: mb.nic ? mb.nic : "",
+  address: mb.address ? mb.address : "",
+  remark: mb.remark ? mb.remark : "",
+  gender: mb.gender ? mb.gender : "other",
+  dateOfBirth: mb.dateOfBirth ? new Date(mb.dateOfBirth) : null,
+  weight: mb.weight ? mb.weight : "",
+  height: mb.height ? mb.height : "",
+  goal: mb.goal ? mb.goal : "",
+  branch: mb.branch ? mb.branch : "",
+  image: mb.image ? mb.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg",
+  selfSignup: mb.selfSignup ? mb.selfSignup : false,
+  user: mb.user ? mb.user : "",
+  oldMemberShipGroup: [],
+  notifications: [],
+  status: mb.status ? mb.status : "Inactive",
+  terminated: false,
+  terminatedReasons: [],
+  blackListed: false,
+  blackListedReasons: [],
+  renewalDay: "",
+  deviceData: [],
+  createdUser: "",
+  createdBy: "",
+  updatedAt: mb.updatedAt,
+  memberShipName: mb.memberShip ? mb.memberShip.name : "No Membership",
+  memberShip: mb.memberShip ? mb.memberShip : null,
+  memberShipGroup: mb.memberShipGroup ? mb.memberShipGroup : undefined,
+  createdAt: mb.createdAt,
+  expiryDate: new Date(mb.updatedAt),
+});
+
 export default function MemberDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [avatarUrl, setAvatarUrl] = useState(memberData.image);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPage, setPaymentPage] = useState(1);
   const [paymentSearch, setPaymentSearch] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(memberData.image);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const paymentsPerPage = 3;
@@ -457,34 +646,72 @@ export default function MemberDetail() {
   const [editTargetActual, setEditTargetActual] = useState("");
   const [showLogProgress, setShowLogProgress] = useState(false);
 
+  const { data: apiResponse, isLoading, refetch, error } = useQuery({
+    queryKey: ["members-list", id],
+    queryFn: () => fetchMembers(id || ""),
+  });
+
   // In real app, fetch member by id
   const member = memberData;
+  const memberDetails = apiResponse ? mapApiMember(apiResponse) : null;
+  useEffect(() => {
+    if (memberDetails) {
+      setAvatarUrl(memberDetails.image ? memberDetails.image : "https://static.vecteezy.com/system/resources/thumbnails/006/390/348/small/simple-flat-isolated-people-icon-free-vector.jpg");
+    }
+  }, [memberDetails]);
 
-  // Form with validation
   const form = useForm<MemberFormValues>({
     resolver: zodResolver(memberFormSchema),
     defaultValues: {
-      email: memberData.email,
-      phone: memberData.phone,
-      address: memberData.address,
-      emergencyContact: memberData.emergencyContact,
-      memberId: memberData.memberId,
-      membership: memberData.membership,
-      branch: memberData.branch,
-      joinDate: memberData.joinDate,
-      expiryDate: memberData.expiryDate,
-      trainer: memberData.trainer,
-      gender: memberData.gender,
-      dateOfBirth: memberData.dateOfBirth,
-      weight: memberData.weight,
-      height: memberData.height,
-      goal: memberData.goal,
+      name: "",
+      email: "",
+      phoneNumber: "",
+      nic: "",
+      address: "",
+      remark: "",
+      gender: "male",
+      dateOfBirth: undefined,
+      weight: "",
+      height: "",
+      goal: "",
+      branch: "",
     },
   });
 
-  const onSubmit = (data: MemberFormValues) => {
-    console.log("Saving member data:", data);
-    toast({ title: "Member Updated", description: "Personal details saved successfully." });
+  useEffect(() => {
+    if (memberDetails) {
+      form.reset({
+        name: memberDetails.name || "",
+        email: memberDetails.email || "",
+        phoneNumber: memberDetails.phoneNumber || "",
+        nic: memberDetails.nic || "",
+        address: memberDetails.address || "",
+        remark: memberDetails.remark || "",
+        gender: memberDetails.gender || "male",
+        dateOfBirth: memberDetails.dateOfBirth || undefined,
+        weight: memberDetails.weight || "",
+        height: memberDetails.height || "",
+        goal: memberDetails.goal || "",
+        branch: memberDetails.branch || "",
+      });
+    }
+  }, [memberDetails?.id, form]);
+
+
+  const onSubmit = async (data: MemberFormValues) => {
+    setIsSubmitting(true);
+    console.log("Submitting form with data:", data);
+    try {
+      await Request.put(`/members/${id}`, data);
+      toast({ title: "Member Updated", description: "Personal details saved successfully." });
+      refetch();
+    } catch (error: any) {
+      console.error("Error updating member:", error);
+      toast({ title: "Member Updated", description: "Failed to update member details." });
+    } finally {
+      setIsSubmitting(false);
+    }
+
   };
 
   const handleAvatarChange = (file: File) => {
@@ -493,12 +720,12 @@ export default function MemberDetail() {
     toast({ title: "Photo Updated", description: "Profile photo has been changed." });
   };
 
-  const handleWhatsApp = () => {
-    window.open(`https://wa.me/${member.phone.replace(/\D/g, "")}`, "_blank");
+  const handleWhatsApp = (phoneNo: string) => {
+    window.open(`https://wa.me/${phoneNo.replace(/\D/g, "")}`, "_blank");
   };
 
-  const handleEmail = () => {
-    window.open(`mailto:${member.email}`, "_blank");
+  const handleEmail = (emailAdd: string) => {
+    window.open(`mailto:${emailAdd}`, "_blank");
   };
 
   const handleAddPayment = () => {
@@ -511,7 +738,7 @@ export default function MemberDetail() {
       date: payment.date,
       memberName: member.name,
       memberId: member.memberId,
-      phone: member.phone,
+      phoneNumber: member.phoneNumber,
       email: member.email,
       description: payment.description,
       amount: payment.amount,
@@ -534,10 +761,10 @@ export default function MemberDetail() {
       // For other sizes, download
       doc.save(`receipt-${payment.receiptNo}-${size}.pdf`);
     }
-    
-    toast({ 
-      title: size === "pos" ? "Printing Receipt" : "Receipt Downloaded", 
-      description: `${size.toUpperCase()} format generated for ${payment.receiptNo}` 
+
+    toast({
+      title: size === "pos" ? "Printing Receipt" : "Receipt Downloaded",
+      description: `${size.toUpperCase()} format generated for ${payment.receiptNo}`
     });
   };
 
@@ -575,11 +802,12 @@ export default function MemberDetail() {
   ];
 
   // Personal Info Tab - Always Editable Form with Validation
+  // TODO why this input boxes when type it wont work?
   const PersonalTab = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <SectionHeader 
-          title="Contact Information" 
+        <SectionHeader
+          title="Contact Information"
           action={
             <Button type="submit" size="sm">
               <Save className="w-4 h-4 mr-1" />
@@ -587,8 +815,23 @@ export default function MemberDetail() {
             </Button>
           }
         />
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5" /> Name
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="email"
@@ -606,11 +849,26 @@ export default function MemberDetail() {
           />
           <FormField
             control={form.control}
-            name="phone"
+            name="phoneNumber"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5" /> Phone
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="nic"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <IdCardIcon className="w-3.5 h-3.5" /> NIC
                 </FormLabel>
                 <FormControl>
                   <Input {...field} />
@@ -636,286 +894,14 @@ export default function MemberDetail() {
           />
           <FormField
             control={form.control}
-            name="emergencyContact"
+            name="remark"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="sm:col-span-2">
                 <FormLabel className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" /> Emergency Contact
+                  <Notebook className="w-3.5 h-3.5" /> Remark
                 </FormLabel>
                 <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <SectionHeader title="Membership Details" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <FormField
-            control={form.control}
-            name="memberId"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-xs text-muted-foreground h-5 flex items-center">Member ID</FormLabel>
-                <FormControl>
-                  <Input {...field} disabled className="disabled:opacity-100 disabled:cursor-default disabled:bg-muted/30" />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="membership"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-xs text-muted-foreground h-5 flex items-center">Plan</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Basic">Basic</SelectItem>
-                    <SelectItem value="Standard">Standard</SelectItem>
-                    <SelectItem value="Premium">Premium</SelectItem>
-                    <SelectItem value="VIP">VIP</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="branch"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-xs text-muted-foreground h-5 flex items-center">Branch</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Downtown">Downtown</SelectItem>
-                    <SelectItem value="Westside">Westside</SelectItem>
-                    <SelectItem value="Eastside">Eastside</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="joinDate"
-            render={({ field }) => {
-              const currentYear = new Date().getFullYear();
-              const years = Array.from({ length: 50 }, (_, i) => currentYear - i);
-              const months = [
-                "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"
-              ];
-              const fieldValue = field.value instanceof Date ? field.value : new Date();
-              const selectedDate = fieldValue;
-              
-              return (
-                <FormItem className="flex flex-col">
-                  <FormLabel className="text-xs text-muted-foreground h-5 flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5" /> Join Date
-                  </FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full h-10 pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <div className="flex items-center gap-2 p-3 border-b">
-                        <Select
-                          value={selectedDate.getMonth().toString()}
-                          onValueChange={(value) => {
-                            const newDate = new Date(selectedDate);
-                            newDate.setMonth(parseInt(value));
-                            field.onChange(newDate);
-                          }}
-                        >
-                          <SelectTrigger className="w-[120px] h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {months.map((month, index) => (
-                              <SelectItem key={month} value={index.toString()}>
-                                {month}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={selectedDate.getFullYear().toString()}
-                          onValueChange={(value) => {
-                            const newDate = new Date(selectedDate);
-                            newDate.setFullYear(parseInt(value));
-                            field.onChange(newDate);
-                          }}
-                        >
-                          <SelectTrigger className="w-[90px] h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[200px]">
-                            {years.map((year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        month={selectedDate}
-                        onMonthChange={(date) => {
-                          if (field.value) {
-                            const newDate = new Date(field.value);
-                            newDate.setMonth(date.getMonth());
-                            newDate.setFullYear(date.getFullYear());
-                          }
-                        }}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
-                        }
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
-          />
-          <FormField
-            control={form.control}
-            name="expiryDate"
-            render={({ field }) => {
-              const currentYear = new Date().getFullYear();
-              const years = Array.from({ length: 10 }, (_, i) => currentYear + i);
-              const months = [
-                "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"
-              ];
-              const fieldValue = field.value instanceof Date ? field.value : new Date();
-              const selectedDate = fieldValue;
-              
-              return (
-                <FormItem className="flex flex-col">
-                  <FormLabel className="text-xs text-muted-foreground h-5 flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5" /> Expiry Date
-                  </FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full h-10 pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <div className="flex items-center gap-2 p-3 border-b">
-                        <Select
-                          value={selectedDate.getMonth().toString()}
-                          onValueChange={(value) => {
-                            const newDate = new Date(selectedDate);
-                            newDate.setMonth(parseInt(value));
-                            field.onChange(newDate);
-                          }}
-                        >
-                          <SelectTrigger className="w-[120px] h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {months.map((month, index) => (
-                              <SelectItem key={month} value={index.toString()}>
-                                {month}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={selectedDate.getFullYear().toString()}
-                          onValueChange={(value) => {
-                            const newDate = new Date(selectedDate);
-                            newDate.setFullYear(parseInt(value));
-                            field.onChange(newDate);
-                          }}
-                        >
-                          <SelectTrigger className="w-[90px] h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[200px]">
-                            {years.map((year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        month={selectedDate}
-                        onMonthChange={(date) => {
-                          if (field.value) {
-                            const newDate = new Date(field.value);
-                            newDate.setMonth(date.getMonth());
-                            newDate.setFullYear(date.getFullYear());
-                          }
-                        }}
-                        disabled={(date) => date < new Date("1900-01-01")}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
-          />
-          <FormField
-            control={form.control}
-            name="trainer"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-xs text-muted-foreground h-5 flex items-center gap-1.5">
-                  <Dumbbell className="w-3.5 h-3.5" /> Trainer
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} />
+                  <Textarea {...field} className="min-h-[60px]" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -959,7 +945,7 @@ export default function MemberDetail() {
               ];
               const fieldValue = field.value instanceof Date ? field.value : new Date();
               const selectedDate = fieldValue;
-              
+
               return (
                 <FormItem>
                   <FormLabel className="text-xs text-muted-foreground">Date of Birth</FormLabel>
@@ -1079,8 +1065,8 @@ export default function MemberDetail() {
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Textarea 
-                  {...field} 
+                <Textarea
+                  {...field}
                   className="bg-primary/5 border-primary/20 text-primary font-medium"
                   placeholder="Enter fitness goal..."
                 />
@@ -1126,7 +1112,7 @@ export default function MemberDetail() {
   ];
 
   const filteredPayments = paymentData.filter((payment) => {
-    const matchesSearch = paymentSearch === "" || 
+    const matchesSearch = paymentSearch === "" ||
       payment.receiptNo.toLowerCase().includes(paymentSearch.toLowerCase()) ||
       payment.description.toLowerCase().includes(paymentSearch.toLowerCase());
     const matchesStatus = paymentStatusFilter === "all" || payment.status === paymentStatusFilter;
@@ -1141,8 +1127,8 @@ export default function MemberDetail() {
 
   const PaymentTab = (
     <div className="space-y-4">
-      <SectionHeader 
-        title="Payment History" 
+      <SectionHeader
+        title="Payment History"
         action={
           <Button size="sm" onClick={handleAddPayment}>
             <Plus className="w-4 h-4 mr-1" />
@@ -1150,7 +1136,7 @@ export default function MemberDetail() {
           </Button>
         }
       />
-      
+
       {/* Payment Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <div className="bg-muted/30 rounded-lg p-4 border border-border/30">
@@ -1205,7 +1191,7 @@ export default function MemberDetail() {
       <SectionHeader title="Monthly Goals" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {progressMetrics.map((metric, index) => (
-          <div 
+          <div
             key={index}
             className="bg-muted/30 rounded-lg p-4 border border-border/30"
           >
@@ -1215,8 +1201,8 @@ export default function MemberDetail() {
                 {metric.current}/{metric.target} {metric.unit}
               </span>
             </div>
-            <Progress 
-              value={(metric.current / metric.target) * 100} 
+            <Progress
+              value={(metric.current / metric.target) * 100}
               className="h-2"
             />
             <p className="text-xs text-muted-foreground mt-2">
@@ -1257,7 +1243,7 @@ export default function MemberDetail() {
   const handleDateClick = (day: Date) => {
     const dayEvents = getEventsForDay(day);
     setSelectedCalendarDate(day);
-    
+
     if (dayEvents.length > 2) {
       setDayEventsDate(day);
       setShowDayEventsModal(true);
@@ -1565,7 +1551,7 @@ export default function MemberDetail() {
                   >
                     {format(day, "d")}
                   </div>
-                  
+
                   {/* Events - Show cards on desktop */}
                   <div className="hidden sm:block space-y-0.5">
                     {dayEvents.slice(0, 2).map((event) => (
@@ -1718,81 +1704,81 @@ export default function MemberDetail() {
   );
 
   const tabs: DetailTab[] = [
-    { 
-      id: "personal", 
-      label: "Personal", 
+    {
+      id: "personal",
+      label: "Personal",
       icon: <User className="w-4 h-4" />,
-      content: PersonalTab 
+      content: PersonalTab
     },
-    { 
-      id: "membership", 
-      label: "Membership", 
+    {
+      id: "membership",
+      label: "Membership",
       icon: <Users className="w-4 h-4" />,
       content: <MemberMembershipTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "classes", 
-      label: "Classes", 
+    {
+      id: "classes",
+      label: "Classes",
       icon: <GraduationCap className="w-4 h-4" />,
       content: <MemberClassesTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "pt", 
-      label: "PT", 
+    {
+      id: "pt",
+      label: "PT",
       icon: <Target className="w-4 h-4" />,
       content: <MemberPTTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "payment", 
-      label: "Payment", 
+    {
+      id: "payment",
+      label: "Payment",
       icon: <CreditCard className="w-4 h-4" />,
-      content: PaymentTab 
+      content: PaymentTab
     },
-    { 
-      id: "calendar", 
-      label: "Calendar", 
+    {
+      id: "calendar",
+      label: "Calendar",
       icon: <CalendarIcon className="w-4 h-4" />,
-      content: CalendarTab 
+      content: CalendarTab
     },
-    { 
-      id: "workout", 
-      label: "Workout", 
+    {
+      id: "workout",
+      label: "Workout",
       icon: <Dumbbell className="w-4 h-4" />,
       content: <MemberWorkoutTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "diet", 
-      label: "Diet", 
+    {
+      id: "diet",
+      label: "Diet",
       icon: <Apple className="w-4 h-4" />,
       content: <MemberDietTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "status", 
-      label: "Status", 
+    {
+      id: "status",
+      label: "Status",
       icon: <CheckCircle2 className="w-4 h-4" />,
-      content: StatusTab 
+      content: StatusTab
     },
-    { 
-      id: "progress", 
-      label: "Progress", 
+    {
+      id: "progress",
+      label: "Progress",
       icon: <TrendingUp className="w-4 h-4" />,
       content: <MemberProgressTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "activity", 
-      label: "Activity", 
+    {
+      id: "activity",
+      label: "Activity",
       icon: <Activity className="w-4 h-4" />,
       content: <MemberActivityTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "emergency", 
-      label: "Emergency", 
+    {
+      id: "emergency",
+      label: "Emergency",
       icon: <AlertCircle className="w-4 h-4" />,
       content: <MemberEmergencyTab memberId={member.memberId} memberName={member.name} />
     },
-    { 
-      id: "documents", 
-      label: "Documents", 
+    {
+      id: "documents",
+      label: "Documents",
       icon: <FolderOpen className="w-4 h-4" />,
       content: <MemberDocumentsTab memberId={member.memberId} memberName={member.name} />
     },
@@ -1801,8 +1787,10 @@ export default function MemberDetail() {
 
   return (
     <DetailPageTemplate
-      title={member.name}
-      subtitle={`${member.memberId} • ${member.membership} Member • ${member.branch}`}
+      isLoading={isLoading || isSubmitting}
+      error={!!error ? "Failed to load member data." : false}
+      title={memberDetails?.name || "Unknown Member"}
+      subtitle={`${memberDetails?.memberShipName || "Membership Not Found"}`}
       avatar={
         <img
           src={avatarUrl}
@@ -1813,16 +1801,26 @@ export default function MemberDetail() {
       onAvatarChange={handleAvatarChange}
       badge={
         <StatusBadge
-          status={member.status === "active" ? "success" : member.status === "expired" ? "error" : "warning"}
-          label={member.status.charAt(0).toUpperCase() + member.status.slice(1)}
+          status={memberDetails?.status === "Active" ? "success" : memberDetails?.status === "Inactive" ? "error" : "warning"}
+          label={memberDetails?.status.charAt(0).toUpperCase() + memberDetails?.status.slice(1)}
         />
       }
       tabs={tabs}
       defaultTab="personal"
       headerActions={[
-        { label: "WhatsApp", icon: <MessageCircle className="w-4 h-4" />, onClick: handleWhatsApp, variant: "outline" },
-        { label: "Email", icon: <Mail className="w-4 h-4" />, onClick: handleEmail, variant: "outline" },
-      ]}
+        memberDetails?.phoneNumber && {
+          label: "WhatsApp",
+          icon: <MessageCircle className="w-4 h-4" />,
+          onClick: () => handleWhatsApp(memberDetails.phoneNumber),
+          variant: "outline" as const,
+        },
+        memberDetails?.email && {
+          label: "Email",
+          icon: <Mail className="w-4 h-4" />,
+          onClick: () => handleEmail(memberDetails.email),
+          variant: "outline" as const,
+        },
+      ].filter(Boolean)}
       backPath="/members"
     />
   );
