@@ -733,7 +733,7 @@ export default function Employees() {
             </div>
             <div>
               <p className="text-2xl font-bold text-card-foreground">{analytics.instructors}</p>
-              <p className="text-xs text-muted-foreground">Trainers</p>
+              <p className="text-xs text-muted-foreground">Absent</p>
             </div>
           </div>
         </div>
