@@ -198,7 +198,7 @@ export default function Auth() {
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${authBg})` }}
       />
-      <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/85 to-primary/20 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/40 to-primary/20 backdrop-blur-[2px]" />
       
       {/* Decorative Elements */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
