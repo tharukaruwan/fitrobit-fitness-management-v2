@@ -748,12 +748,12 @@ export default function EmployeeDetail() {
       icon: <User className="w-4 h-4" />,
       content: PersonalTab
     },
-    {
-      id: "calendar",
-      label: "Calendar",
-      icon: <CalendarIcon className="w-4 h-4" />,
-      content: <EmployeeCalendarTab />
-    },
+    // {
+    //   id: "calendar",
+    //   label: "Calendar",
+    //   icon: <CalendarIcon className="w-4 h-4" />,
+    //   content: <EmployeeCalendarTab />
+    // },
     {
       id: "emergency",
       label: "Emergency",

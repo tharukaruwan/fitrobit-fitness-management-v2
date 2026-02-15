@@ -119,7 +119,7 @@ export default function DailyAttendance() {
             </div>
           </div>
         </div>
-        <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
+        {/* <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
               <Calendar className="w-5 h-5 text-warning" />
@@ -129,7 +129,7 @@ export default function DailyAttendance() {
               <p className="text-xs text-muted-foreground">Avg Duration</p>
             </div>
           </div>
-        </div>
+        </div> */}
         <div className="bg-card rounded-xl p-4 shadow-soft border border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
@@ -137,7 +137,7 @@ export default function DailyAttendance() {
             </div>
             <div>
               <p className="text-2xl font-bold text-card-foreground">7:15</p>
-              <p className="text-xs text-muted-foreground">Peak Hour</p>
+              <p className="text-xs text-muted-foreground">Avg Duration</p>
             </div>
           </div>
         </div>
@@ -149,14 +149,14 @@ export default function DailyAttendance() {
         searchValue={searchQuery}
         onSearchChange={handleSearch}
         filters={[
-          {
-            key: "memberName",
-            label: "Member",
-            type: "async",
-            value: filters.memberName || "",
-            onChange: (v) => handleFilter("memberName", v),
-            onSearch: searchMembers,
-          } as FilterConfig,
+          // {
+          //   key: "memberName",
+          //   label: "Member",
+          //   type: "async",
+          //   value: filters.memberName || "",
+          //   onChange: (v) => handleFilter("memberName", v),
+          //   onSearch: searchMembers,
+          // } as FilterConfig,
           {
             key: "status",
             label: "Status",

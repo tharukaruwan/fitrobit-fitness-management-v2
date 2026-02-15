@@ -453,7 +453,7 @@ const EmployeeForm = ({ formData, setFormData }: EmployeeFormProps) => {
           size="sm"
           onClick={() => setFormData(prev => ({ ...prev, isInstructor: true }))}
         >
-          Instructor
+          Permanant
         </Button>
         <Button
           type="button"
@@ -461,7 +461,7 @@ const EmployeeForm = ({ formData, setFormData }: EmployeeFormProps) => {
           size="sm"
           onClick={() => setFormData(prev => ({ ...prev, isInstructor: false }))}
         >
-          Staff
+          Contract
         </Button>
       </div>
     </div>

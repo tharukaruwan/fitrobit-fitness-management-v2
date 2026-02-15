@@ -39,7 +39,7 @@ interface CalendarEvent {
 }
 
 const eventTypes = [
-  { value: "class", label: "Class", color: "bg-primary" },
+  // { value: "class", label: "Class", color: "bg-primary" },
   { value: "appointment", label: "Appointment", color: "bg-warning" },
   { value: "meeting", label: "Meeting", color: "bg-blue-500" },
   { value: "maintenance", label: "Maintenance", color: "bg-purple-500" },
@@ -56,47 +56,49 @@ const generateSampleEvents = (): CalendarEvent[] => {
   const events: CalendarEvent[] = [];
   
   // Regular events
-  events.push(
-    {
-      id: "1",
-      title: "Morning Yoga",
-      start: today,
-      color: "bg-primary",
-      type: "class",
-      description: "Beginner-friendly yoga session",
-      location: "Studio A",
-      instructor: "Sarah Johnson",
-    },
-    {
-      id: "2",
-      title: "HIIT Training",
-      start: today,
-      color: "bg-destructive",
-      type: "class",
-      description: "High intensity interval training",
-      location: "Main Floor",
-      instructor: "Mike Thompson",
-    },
-    {
-      id: "3",
-      title: "Personal Training",
-      start: new Date(Date.now() + 86400000),
-      color: "bg-warning",
-      type: "appointment",
-      description: "One-on-one training session",
-      location: "Training Room 2",
-      instructor: "David Lee",
-    },
-    {
-      id: "4",
-      title: "Staff Meeting",
-      start: new Date(Date.now() + 172800000),
-      color: "bg-blue-500",
-      type: "meeting",
-      description: "Weekly staff sync",
-      location: "Conference Room",
-    }
-  );
+ events.push(
+  {
+    id: "1",
+    title: "Employee Onboarding Session",
+    start: today,
+    color: "bg-primary",
+    type: "training",
+    description: "Introduction to company policies, tools, and culture",
+    location: "Training Room A",
+    organizer: "HR Department",
+  },
+  {
+    id: "2",
+    title: "Performance Review Meeting",
+    start: today,
+    color: "bg-destructive",
+    type: "review",
+    description: "Quarterly employee performance evaluation",
+    location: "Manager’s Office",
+    organizer: "Team Lead",
+  },
+  {
+    id: "3",
+    title: "HR Policy Workshop",
+    start: new Date(Date.now() + 86400000),
+    color: "bg-warning",
+    type: "workshop",
+    description: "Workshop on updated leave and attendance policies",
+    location: "Conference Hall",
+    organizer: "HR Manager",
+  },
+  {
+    id: "4",
+    title: "Team Building Activity",
+    start: new Date(Date.now() + 172800000),
+    color: "bg-blue-500",
+    type: "event",
+    description: "Interactive team bonding and engagement activities",
+    location: "Outdoor Area",
+    organizer: "HR & Admin",
+  }
+);
+
 
   // Add more events to today to simulate a busy day
   for (let i = 5; i <= 15; i++) {
@@ -280,7 +282,7 @@ export default function CalendarPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Calendar & Scheduling</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage classes, appointments, and events
+            Manage employee events, appointments, and schedules
           </p>
         </div>
         <Button onClick={handleOpenAddSheet} className="w-full sm:w-auto">
